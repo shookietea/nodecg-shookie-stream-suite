@@ -1,0 +1,330 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "streamerBot": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1"
+        },
+        "port": {
+          "type": "number",
+          "default": 8080
+        }
+      },
+      "required": ["host", "port"],
+      "default": {
+        "host": "127.0.0.1",
+        "port": 8080
+      }
+    },
+    "danmaku": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "speedMult": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 3.0,
+          "default": 1.0
+        },
+        "scaleModifier": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2.0,
+          "default": 1.0
+        },
+        "showUsernames": {
+          "type": "boolean",
+          "default": false
+        },
+        "showEmotes": {
+          "type": "boolean",
+          "default": true
+        },
+        "showEmojis": {
+          "type": "boolean",
+          "default": false
+        },
+        "showText": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": ["enabled", "speedMult", "scaleModifier", "showUsernames", "showEmotes", "showEmojis", "showText"],
+      "default": {
+        "enabled": true,
+        "speedMult": 1.0,
+        "scaleModifier": 1.0,
+        "showUsernames": false,
+        "showEmotes": true,
+        "showEmojis": false,
+        "showText": true
+      }
+    },
+    "credits": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "chatWeight": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.0
+        },
+        "subWeight": {
+          "type": "number",
+          "minimum": 0,
+          "default": 2.0
+        },
+        "donoWeight": {
+          "type": "number",
+          "minimum": 0,
+          "default": 3.0
+        },
+        "durationAuto": {
+          "type": "boolean",
+          "default": true
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 3,
+          "maximum": 120,
+          "default": 60
+        },
+        "durationBaseSec": {
+          "type": "number",
+          "minimum": 1,
+          "default": 12
+        },
+        "durationPerRowMs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 850
+        },
+        "durationPerNameMs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 80
+        },
+        "showTitle": {
+          "type": "boolean",
+          "default": true
+        },
+        "title": {
+          "type": "string",
+          "default": "Stream Credits"
+        },
+        "showUserCount": {
+          "type": "boolean",
+          "default": true
+        },
+        "density": {
+          "type": "number",
+          "minimum": 0.6,
+          "maximum": 2.0,
+          "default": 1.0
+        },
+        "cloudGap": {
+          "type": "number",
+          "minimum": 0,
+          "default": 8
+        },
+        "heroSizeMult": {
+          "type": "number",
+          "minimum": 1,
+          "default": 1.6
+        }
+      },
+      "required": ["enabled", "chatWeight", "subWeight", "donoWeight", "durationAuto", "duration", "durationBaseSec", "durationPerRowMs", "durationPerNameMs", "showTitle", "title", "showUserCount", "density", "cloudGap", "heroSizeMult"],
+      "default": {
+        "enabled": true,
+        "chatWeight": 1.0,
+        "subWeight": 2.0,
+        "donoWeight": 3.0,
+        "durationAuto": true,
+        "duration": 60,
+        "durationBaseSec": 12,
+        "durationPerRowMs": 850,
+        "durationPerNameMs": 80,
+        "showTitle": true,
+        "title": "Stream Credits",
+        "showUserCount": true,
+        "density": 1.0,
+        "cloudGap": 8,
+        "heroSizeMult": 1.6
+      }
+    },
+    "alerts": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "paused": {
+          "type": "boolean",
+          "default": false
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 1000,
+          "maximum": 30000,
+          "default": 5000
+        },
+        "scaleModifier": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2.0,
+          "default": 1.0
+        },
+        "showFollows": {
+          "type": "boolean",
+          "default": false
+        },
+        "showSubs": {
+          "type": "boolean",
+          "default": true
+        },
+        "showCheers": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": ["enabled", "paused", "duration", "scaleModifier", "showFollows", "showSubs", "showCheers"],
+      "default": {
+        "enabled": true,
+        "paused": false,
+        "duration": 5000,
+        "scaleModifier": 1.0,
+        "showFollows": false,
+        "showSubs": true,
+        "showCheers": true
+      }
+    },
+    "blockList": {
+      "type": "object",
+      "properties": {
+        "usernames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      },
+      "required": ["usernames"],
+      "default": {
+        "usernames": []
+      }
+    },
+    "testMode": {
+      "type": "object",
+      "properties": {
+        "masterEnabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "autoGenMessages": {
+          "type": "boolean",
+          "default": false
+        },
+        "messagesPerMinute": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 60
+        },
+        "autoGenSubs": {
+          "type": "boolean",
+          "default": false
+        },
+        "autoGenFollows": {
+          "type": "boolean",
+          "default": false
+        },
+        "autoGenCheers": {
+          "type": "boolean",
+          "default": false
+        },
+        "alertInterval": {
+          "type": "number",
+          "minimum": 2,
+          "maximum": 60,
+          "default": 6
+        }
+      },
+      "required": ["masterEnabled", "autoGenMessages", "messagesPerMinute", "autoGenSubs", "autoGenFollows", "autoGenCheers", "alertInterval"],
+      "default": {
+        "masterEnabled": false,
+        "autoGenMessages": false,
+        "messagesPerMinute": 60,
+        "autoGenSubs": false,
+        "autoGenFollows": false,
+        "autoGenCheers": false,
+        "alertInterval": 6
+      }
+    }
+  },
+  "required": ["streamerBot", "danmaku", "credits", "alerts", "blockList", "testMode"],
+  "default": {
+    "streamerBot": {
+      "host": "127.0.0.1",
+      "port": 8080
+    },
+    "danmaku": {
+      "enabled": true,
+      "speedMult": 1.0,
+      "scaleModifier": 1.0,
+      "showUsernames": false,
+      "showEmotes": true,
+      "showEmojis": false,
+      "showText": true
+    },
+    "credits": {
+      "enabled": true,
+      "chatWeight": 1.0,
+      "subWeight": 2.0,
+      "donoWeight": 3.0,
+      "durationAuto": true,
+      "duration": 60,
+      "durationBaseSec": 12,
+      "durationPerRowMs": 850,
+      "durationPerNameMs": 80,
+      "showTitle": true,
+      "title": "Stream Credits",
+      "showUserCount": true,
+      "density": 1.0,
+      "cloudGap": 8,
+      "heroSizeMult": 1.6
+    },
+    "alerts": {
+      "enabled": true,
+      "paused": false,
+      "duration": 5000,
+      "scaleModifier": 1.0,
+      "showFollows": false,
+      "showSubs": true,
+      "showCheers": true
+    },
+    "blockList": {
+      "usernames": []
+    },
+    "testMode": {
+      "masterEnabled": false,
+      "autoGenMessages": false,
+      "messagesPerMinute": 60,
+      "autoGenSubs": false,
+      "autoGenFollows": false,
+      "autoGenCheers": false,
+      "alertInterval": 6
+    }
+  }
+}

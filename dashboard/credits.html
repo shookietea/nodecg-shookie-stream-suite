@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Credits</title>
+  <link rel="stylesheet" href="shared-styles.css">
+</head>
+<body>
+  <!-- Enable/Disable & Controls -->
+  <div class="section">
+    <div class="section-content">
+      <div class="setting-item">
+        <label class="inline">
+          <input type="checkbox" id="credits-enabled" checked>
+          <span>Credits Enabled</span>
+        </label>
+      </div>
+      <div class="button-group mt-1">
+        <button id="show-real-credits-btn" class="primary">Show Credits</button>
+        <button id="hide-credits-btn" class="danger">Hide Credits</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weights Section -->
+  <div class="section collapsible" data-collapsible id="credits-weights">
+    <h3 class="section-header">
+      <span class="section-title">Contribution Weights</span>
+      <span class="section-toggle">▼</span>
+    </h3>
+    <div class="section-content">
+      <div class="settings-grid">
+        <div class="setting-item">
+          <label for="credits-chat-weight">Chat Weight:</label>
+          <input type="number" class="compact-sm" id="credits-chat-weight" step="0.1" min="0" value="1.0">
+        </div>
+        <div class="setting-item">
+          <label for="credits-sub-weight">Sub Weight:</label>
+          <input type="number" class="compact-sm" id="credits-sub-weight" step="0.1" min="0" value="2.0">
+        </div>
+        <div class="setting-item">
+          <label for="credits-dono-weight">Donation Weight:</label>
+          <input type="number" class="compact-sm" id="credits-dono-weight" step="0.1" min="0" value="3.0">
+        </div>
+      </div>
+      <div class="info mt-1">Weights determine how each contribution type affects user ranking. Higher values prioritize that contribution type.</div>
+    </div>
+  </div>
+
+  <!-- Title & Display -->
+  <div class="section collapsible" data-collapsible id="credits-display">
+    <h3 class="section-header">
+      <span class="section-title">Title & Display</span>
+      <span class="section-toggle">▼</span>
+    </h3>
+    <div class="section-content">
+      <div class="setting-item">
+        <label class="inline">
+          <input type="checkbox" id="credits-show-title" checked>
+          <span>Show Title</span>
+        </label>
+        <div class="info">Display a title above the credits</div>
+      </div>
+      <div class="setting-item">
+        <label for="credits-title">Credits Title Text:</label>
+        <input type="text" id="credits-title" value="Stream Credits" placeholder="Stream Credits" disabled>
+        <div class="info">Leave empty for no text (title will be blank if enabled)</div>
+      </div>
+      <div class="setting-item">
+        <label class="inline">
+          <input type="checkbox" id="credits-show-count" checked>
+          <span>Show User Count in Title</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Duration Settings -->
+  <div class="section collapsible" data-collapsible id="credits-duration">
+    <h3 class="section-header">
+      <span class="section-title">Duration Settings</span>
+      <span class="section-toggle">▼</span>
+    </h3>
+    <div class="section-content">
+      <div class="setting-item mb-2">
+        <label class="inline">
+          <input type="checkbox" id="credits-duration-auto" checked>
+          <span>Auto-calculate Duration</span>
+        </label>
+        <div class="info">Automatically adjusts duration based on number of users</div>
+      </div>
+
+      <div class="setting-item">
+        <label for="credits-duration-manual">Manual Duration (seconds):</label>
+        <input type="number" id="credits-duration-manual" min="3" max="120" value="60" disabled>
+        <div class="info">Fixed duration when auto-calculate is disabled</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics & Countdown -->
+  <div class="section collapsible" data-collapsible id="credits-stats">
+    <h3 class="section-header">
+      <span class="section-title">Statistics & Preview</span>
+      <span class="section-toggle">▼</span>
+    </h3>
+    <div class="section-content">
+      <div class="stats-row">
+        <div class="stat-box" data-stat-toggle="real-users">
+          <div class="stat-label">Users</div>
+          <div class="stat-value" id="real-total-users">0</div>
+        </div>
+        <div class="stat-box" data-stat-toggle="real-messages">
+          <div class="stat-label">Messages</div>
+          <div class="stat-value" id="real-total-messages">0</div>
+        </div>
+        <div class="stat-box" data-stat-toggle="real-donations">
+          <div class="stat-label">Donations</div>
+          <div class="stat-value" id="real-total-donations">$0</div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-label">Estimated Duration</div>
+          <div class="stat-value" id="real-estimated-duration">0s</div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-label">Countdown Timer</div>
+          <div class="stat-value" id="credits-countdown" style="color: inherit;">—</div>
+          <div style="font-size: 10px; color: #666; margin-top: 4px;" id="countdown-status">Waiting...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Management -->
+  <div class="section collapsible collapsed" data-collapsible id="credits-data">
+    <h3 class="section-header">
+      <span class="section-title">Data Management</span>
+      <span class="section-toggle">▶</span>
+    </h3>
+    <div class="section-content">
+      <div class="button-group">
+        <button id="export-real-btn" class="success">Export</button>
+        <button id="import-real-btn">Import</button>
+        <button id="reset-real-btn" class="danger">Reset</button>
+      </div>
+      <input type="file" id="import-real-file" accept=".json" style="display: none;">
+      <div class="message" id="real-message"></div>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    // ============================================================================
+    // Element ID Constants
+    // ============================================================================
+
+    const ELEMENT_IDS = {
+      // Settings
+      ENABLED: 'credits-enabled',
+      CHAT_WEIGHT: 'credits-chat-weight',
+      SUB_WEIGHT: 'credits-sub-weight',
+      DONO_WEIGHT: 'credits-dono-weight',
+      SHOW_TITLE: 'credits-show-title',
+      TITLE: 'credits-title',
+      SHOW_COUNT: 'credits-show-count',
+      DURATION_AUTO: 'credits-duration-auto',
+      DURATION_MANUAL: 'credits-duration-manual',
+
+      // Buttons
+      SHOW_REAL_CREDITS_BTN: 'show-real-credits-btn',
+      HIDE_CREDITS_BTN: 'hide-credits-btn',
+      EXPORT_REAL_BTN: 'export-real-btn',
+      IMPORT_REAL_BTN: 'import-real-btn',
+      RESET_REAL_BTN: 'reset-real-btn',
+      IMPORT_REAL_FILE: 'import-real-file',
+
+      // Stats
+      REAL_TOTAL_USERS: 'real-total-users',
+      REAL_TOTAL_MESSAGES: 'real-total-messages',
+      REAL_TOTAL_DONATIONS: 'real-total-donations',
+      REAL_ESTIMATED_DURATION: 'real-estimated-duration',
+      CREDITS_COUNTDOWN: 'credits-countdown',
+      COUNTDOWN_STATUS: 'countdown-status',
+      REAL_MESSAGE: 'real-message'
+    };
+
+    const settingsRep = nodecg.Replicant('settings');
+    const creditsStatsRep = nodecg.Replicant('creditsStats');
+
+    // Initialize collapsible sections and stat toggles
+    DashboardUtils.initCollapsibleSections();
+    DashboardUtils.initStatBoxToggles();
+
+    // ============================================================================
+    // Settings Management
+    // ============================================================================
+
+    const autoSave = DashboardUtils.createAutoSave(settingsRep, 'credits');
+
+    function updateRealEstimate() {
+      nodecg.sendMessage('credits:estimateReal', null, (err, estimate) => {
+        if (err) {
+          console.error('Failed to get estimate:', err);
+          return;
+        }
+        if (estimate) {
+          document.getElementById('real-estimated-duration').textContent = `${estimate.duration}s`;
+        }
+      });
+    }
+
+    settingsRep.on('change', (newValue) => {
+      if (!newValue) return;
+      DashboardUtils.updateElement('credits-enabled', newValue.credits?.enabled !== false);
+      DashboardUtils.updateElement('credits-chat-weight', newValue.credits?.chatWeight, 1.0);
+      DashboardUtils.updateElement('credits-sub-weight', newValue.credits?.subWeight, 2.0);
+      DashboardUtils.updateElement('credits-dono-weight', newValue.credits?.donoWeight, 3.0);
+      DashboardUtils.updateElement('credits-show-title', newValue.credits?.showTitle !== false);
+      DashboardUtils.updateElement('credits-title', newValue.credits?.title, 'Stream Credits');
+      DashboardUtils.updateElement('credits-show-count', newValue.credits?.showUserCount !== false);
+      DashboardUtils.updateElement('credits-duration-auto', newValue.credits?.durationAuto !== false);
+      DashboardUtils.updateElement('credits-duration-manual', newValue.credits?.duration, 60);
+
+      // Toggle manual duration disabled state
+      updateDurationState();
+
+      // Toggle title text disabled state
+      updateTitleState();
+
+      // Update estimate when weight settings change
+      updateRealEstimate();
+    });
+
+    // Helper to toggle manual duration disabled state
+    function updateDurationState() {
+      const isAuto = DashboardUtils.getElementValue('credits-duration-auto');
+      const manualInput = document.getElementById('credits-duration-manual');
+      manualInput.disabled = isAuto;
+    }
+
+    // Helper to toggle title text input disabled state
+    function updateTitleState() {
+      const showTitle = DashboardUtils.getElementValue('credits-show-title');
+      const titleInput = document.getElementById('credits-title');
+      titleInput.disabled = !showTitle;
+    }
+
+    // Helper to get current credits settings
+    function getCurrentCreditsSettings() {
+      const durationAuto = DashboardUtils.getElementValue('credits-duration-auto');
+      const duration = DashboardUtils.getElementValue('credits-duration-manual');
+      const title = DashboardUtils.getElementValue('credits-title');
+
+      return {
+        enabled: DashboardUtils.getElementValue('credits-enabled'),
+        chatWeight: DashboardUtils.getElementValue('credits-chat-weight'),
+        subWeight: DashboardUtils.getElementValue('credits-sub-weight'),
+        donoWeight: DashboardUtils.getElementValue('credits-dono-weight'),
+        showTitle: DashboardUtils.getElementValue('credits-show-title'),
+        title: title !== null && title !== undefined ? title : 'Stream Credits',
+        showUserCount: DashboardUtils.getElementValue('credits-show-count'),
+        durationAuto: durationAuto,
+        duration: isNaN(duration) || duration < 3 ? 60 : duration
+      };
+    }
+
+    DashboardUtils.addListeners(
+      ['credits-chat-weight', 'credits-sub-weight', 'credits-dono-weight', 'credits-title', 'credits-duration-manual'],
+      'input',
+      () => autoSave(getCurrentCreditsSettings)
+    );
+
+    document.getElementById('credits-enabled').addEventListener('change', () => {
+      autoSave(getCurrentCreditsSettings);
+    });
+
+    document.getElementById('credits-show-title').addEventListener('change', () => {
+      updateTitleState();
+      autoSave(getCurrentCreditsSettings);
+    });
+
+    document.getElementById('credits-show-count').addEventListener('change', () => {
+      autoSave(getCurrentCreditsSettings);
+    });
+
+    document.getElementById('credits-duration-auto').addEventListener('change', () => {
+      updateDurationState();
+      autoSave(getCurrentCreditsSettings);
+    });
+
+    // ============================================================================
+    // Real Credits Stats Display
+    // ============================================================================
+
+    creditsStatsRep.on('change', (stats) => {
+      if (!stats) return;
+
+      const users = new Set([
+        ...Object.keys(stats.chatCounts || {}),
+        ...Object.keys(stats.subMonths || {}),
+        ...Object.keys(stats.donoUSD || {})
+      ]);
+
+      const totalMessages = Object.values(stats.chatCounts || {}).reduce((a, b) => a + b, 0);
+      const totalDonations = Object.values(stats.donoUSD || {}).reduce((a, b) => a + b, 0);
+
+      document.getElementById('real-total-users').textContent = users.size;
+      document.getElementById('real-total-messages').textContent = totalMessages;
+      document.getElementById('real-total-donations').textContent = `$${totalDonations.toFixed(2)}`;
+
+      // Update estimated duration
+      updateRealEstimate();
+    });
+
+    // ============================================================================
+    // Credits Countdown Timer
+    // ============================================================================
+
+    const creditsCountdown = DashboardUtils.createCreditsCountdown('credits-countdown', 'countdown-status', 'real');
+
+    // ============================================================================
+    // Show Credits Button
+    // ============================================================================
+
+    document.getElementById('show-real-credits-btn').addEventListener('click', () => {
+      nodecg.sendMessage('credits:estimateReal', null, (err, estimate) => {
+        if (err) {
+          console.error('Failed to estimate duration:', err);
+          return;
+        }
+
+        // Check if there are any users to show
+        if (!estimate || estimate.userCount === 0) {
+          showMessage('No credits data to display', 'error');
+          return;
+        }
+
+        // Only start countdown if duration > 0
+        if (estimate.duration > 0) {
+          creditsCountdown.start(estimate.duration);
+        }
+
+        nodecg.sendMessage('credits:show', { which: 'real' });
+        showMessage('Credits triggered');
+      });
+    });
+
+    document.getElementById('hide-credits-btn').addEventListener('click', () => {
+      nodecg.sendMessage('credits:hide');
+      showMessage('Credits hidden');
+    });
+
+    // ============================================================================
+    // Export Real Credits
+    // ============================================================================
+
+    document.getElementById('export-real-btn').addEventListener('click', () => {
+      nodecg.sendMessage('credits:exportReal', null, (err, data) => {
+        if (err) {
+          showMessage(`Export failed: ${err}`, 'error');
+          return;
+        }
+
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `credits-real-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showMessage('Exported successfully');
+      });
+    });
+
+    // ============================================================================
+    // Import Real Credits
+    // ============================================================================
+
+    document.getElementById('import-real-btn').addEventListener('click', () => {
+      document.getElementById('import-real-file').click();
+    });
+
+    document.getElementById('import-real-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          nodecg.sendMessage('credits:importReal', data, (err, result) => {
+            if (err) {
+              showMessage(`Import failed: ${err}`, 'error');
+            } else {
+              showMessage('Imported successfully');
+            }
+          });
+        } catch (err) {
+          showMessage('Import failed: Invalid JSON', 'error');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // ============================================================================
+    // Reset Real Credits
+    // ============================================================================
+
+    document.getElementById('reset-real-btn').addEventListener('click', () => {
+      if (confirm('Reset ALL real credits data? This cannot be undone!')) {
+        nodecg.sendMessage('credits:resetReal');
+        showMessage('Credits reset');
+      }
+    });
+
+    // ============================================================================
+    // Utility Functions
+    // ============================================================================
+
+    function showMessage(text, type = 'success') {
+      const messageEl = document.getElementById('real-message');
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`;
+
+      setTimeout(() => {
+        messageEl.style.display = 'none';
+        messageEl.className = 'message';
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Danmaku Settings</title>
+    <link rel="stylesheet" href="shared-styles.css" />
+  </head>
+  <body>
+    <!-- Enable/Disable -->
+    <div class="section">
+      <div class="section-content">
+        <div class="setting-item">
+          <label class="inline">
+            <input type="checkbox" id="danmaku-enabled" checked />
+            <span>Danmaku Enabled</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Display Settings -->
+    <div class="section collapsible" data-collapsible id="danmaku-display">
+      <h3 class="section-header">
+        <span class="section-title">Display Settings</span>
+        <span class="section-toggle">▼</span>
+      </h3>
+      <div class="section-content">
+        <div class="setting-item">
+          <label for="danmaku-speed-mult">
+            Speed: <span class="slider-value" id="speed-value">1.00x</span>
+          </label>
+          <input
+            type="range"
+            id="danmaku-speed-mult"
+            min="0.25"
+            max="3.0"
+            step="0.05"
+            value="1.0"
+          />
+          <div class="info">Message scroll speed multiplier (0.25x - 3.0x)</div>
+        </div>
+        <div class="setting-item">
+          <label for="danmaku-scale-modifier">
+            Text Scale: <span class="slider-value" id="scale-value">1.0x</span>
+          </label>
+          <input
+            type="range"
+            id="danmaku-scale-modifier"
+            min="0.5"
+            max="2.0"
+            step="0.1"
+            value="1.0"
+          />
+          <div class="info">Auto-scales to viewport size (0.5x - 2.0x)</div>
+        </div>
+        <div class="setting-item">
+          <div
+            class="info"
+            style="
+              margin-top: 8px;
+              padding: 8px;
+              background: rgba(79, 195, 247, 0.1);
+              border-left: 3px solid #4fc3f7;
+            "
+          >
+            <strong>Dynamic Speed Scaling:</strong> Messages automatically speed
+            up as the queue grows to minimize latency. Speed increases
+            progressively from 1.0x (0-2 pending) -> 1.2x (3+) -> 1.4x (8+) ->
+            1.7x (15+) -> 2.0x max (25+ pending).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual Elements -->
+    <div class="section collapsible" data-collapsible id="danmaku-visual">
+      <h3 class="section-header">
+        <span class="section-title">Visual Elements</span>
+        <span class="section-toggle">▼</span>
+      </h3>
+      <div class="section-content">
+        <div class="setting-item">
+          <label class="inline">
+            <input type="checkbox" id="danmaku-show-text" checked />
+            <span>Show Text</span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <label class="inline">
+            <input type="checkbox" id="danmaku-show-emotes" checked />
+            <span>Show Emotes</span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <label class="inline">
+            <input type="checkbox" id="danmaku-show-usernames" />
+            <span>Show Usernames</span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <label class="inline">
+            <input type="checkbox" id="danmaku-show-emojis" />
+            <span>Show Emojis</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- System Info -->
+    <div class="section collapsible" data-collapsible id="danmaku-system-info">
+      <h3 class="section-header">
+        <span class="section-title">Adaptive Density System</span>
+        <span class="section-toggle">▼</span>
+      </h3>
+      <div class="section-content">
+        <div class="setting-item">
+          <div
+            class="info"
+            style="
+              background: rgba(76, 175, 80, 0.1);
+              border-left: 3px solid #4caf50;
+              padding: 12px;
+            "
+          >
+            <div style="margin-bottom: 8px">
+              <strong>Automatic Message Packing:</strong> Message density
+              automatically adjusts based on chat activity to minimize latency.
+            </div>
+            <div style="font-size: 0.9em; line-height: 1.6">
+              <div style="margin-bottom: 6px">
+                The overlay dynamically tightens message spacing when chat is
+                busy and relaxes spacing when chat is slow. This ensures
+                messages appear as close to send time as possible while
+                maintaining readability.
+              </div>
+              <div style="opacity: 0.8">
+                <em
+                  >No configuration needed - the system handles queue management
+                  automatically.</em
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script>
+      // ============================================================================
+      // Element ID Constants
+      // ============================================================================
+
+      const ELEMENT_IDS = {
+        ENABLED: 'danmaku-enabled',
+        SPEED_MULT: 'danmaku-speed-mult',
+        SPEED_VALUE: 'speed-value',
+        SCALE_MODIFIER: 'danmaku-scale-modifier',
+        SCALE_VALUE: 'scale-value',
+        SHOW_TEXT: 'danmaku-show-text',
+        SHOW_EMOTES: 'danmaku-show-emotes',
+        SHOW_USERNAMES: 'danmaku-show-usernames',
+        SHOW_EMOJIS: 'danmaku-show-emojis',
+      };
+
+      const settingsRep = nodecg.Replicant('settings');
+
+      // Initialize collapsible sections
+      DashboardUtils.initCollapsibleSections();
+
+      // Auto-save helpers using DashboardUtils
+      const autoSave = DashboardUtils.createAutoSave(settingsRep, 'danmaku');
+      const immediateSave = DashboardUtils.createImmediateSave(
+        settingsRep,
+        'danmaku'
+      );
+
+      /**
+       * Gets all danmaku settings from DOM
+       * @returns {Object} Current danmaku settings
+       */
+      function getCurrentDanmakuSettings() {
+        return {
+          enabled: DashboardUtils.getElementValue(ELEMENT_IDS.ENABLED),
+          speedMult: DashboardUtils.getElementValue(ELEMENT_IDS.SPEED_MULT),
+          scaleModifier: DashboardUtils.getElementValue(
+            ELEMENT_IDS.SCALE_MODIFIER
+          ),
+          showUsernames: DashboardUtils.getElementValue(
+            ELEMENT_IDS.SHOW_USERNAMES
+          ),
+          showEmotes: DashboardUtils.getElementValue(ELEMENT_IDS.SHOW_EMOTES),
+          showEmojis: DashboardUtils.getElementValue(ELEMENT_IDS.SHOW_EMOJIS),
+          showText: DashboardUtils.getElementValue(ELEMENT_IDS.SHOW_TEXT),
+        };
+      }
+
+      // Update slider displays using DashboardUtils
+      DashboardUtils.createSliderUpdater(
+        ELEMENT_IDS.SPEED_MULT,
+        ELEMENT_IDS.SPEED_VALUE,
+        (v) => `${v.toFixed(2)}x`
+      );
+      DashboardUtils.createSliderUpdater(
+        ELEMENT_IDS.SCALE_MODIFIER,
+        ELEMENT_IDS.SCALE_VALUE,
+        (v) => `${v.toFixed(1)}x`
+      );
+
+      // Load settings using DashboardUtils
+      // Use !== false pattern to default checkboxes to TRUE when undefined
+      settingsRep.on('change', (newValue) => {
+        if (!newValue) return;
+        // Danmaku settings
+        DashboardUtils.updateElement(
+          ELEMENT_IDS.ENABLED,
+          newValue.danmaku?.enabled !== false
+        );
+        DashboardUtils.updateElement(
+          ELEMENT_IDS.SPEED_MULT,
+          newValue.danmaku?.speedMult,
+          1.0
+        );
+        DashboardUtils.updateElement(
+          ELEMENT_IDS.SCALE_MODIFIER,
+          newValue.danmaku?.scaleModifier,
+          1.0
+        );
+        DashboardUtils.updateElement(
+          ELEMENT_IDS.SHOW_USERNAMES,
+          newValue.danmaku?.showUsernames,
+          false
+        );
+        DashboardUtils.updateElement(
+          ELEMENT_IDS.SHOW_EMOTES,
+          newValue.danmaku?.showEmotes !== false
+        );
+        DashboardUtils.updateElement(
+          ELEMENT_IDS.SHOW_EMOJIS,
+          newValue.danmaku?.showEmojis,
+          false
+        );
+        DashboardUtils.updateElement(
+          ELEMENT_IDS.SHOW_TEXT,
+          newValue.danmaku?.showText !== false
+        );
+
+        // Manually update slider displays
+        const speedMult = newValue.danmaku?.speedMult || 1.0;
+        document.getElementById(ELEMENT_IDS.SPEED_VALUE).textContent =
+          speedMult.toFixed(2) + 'x';
+        const scaleModifier = newValue.danmaku?.scaleModifier || 1.0;
+        document.getElementById(ELEMENT_IDS.SCALE_VALUE).textContent =
+          scaleModifier.toFixed(1) + 'x';
+      });
+
+      // Auto-save on input (debounced for sliders and numbers)
+      DashboardUtils.addListeners(
+        [ELEMENT_IDS.SPEED_MULT, ELEMENT_IDS.SCALE_MODIFIER],
+        'input',
+        () => autoSave(getCurrentDanmakuSettings)
+      );
+
+      // Immediate save for checkboxes
+      DashboardUtils.addListeners(
+        [
+          ELEMENT_IDS.ENABLED,
+          ELEMENT_IDS.SHOW_USERNAMES,
+          ELEMENT_IDS.SHOW_EMOTES,
+          ELEMENT_IDS.SHOW_EMOJIS,
+          ELEMENT_IDS.SHOW_TEXT,
+        ],
+        'change',
+        () => immediateSave(getCurrentDanmakuSettings)
+      );
+    </script>
+  </body>
+</html>

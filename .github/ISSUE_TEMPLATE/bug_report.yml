@@ -1,0 +1,143 @@
+name: Bug Report
+description: Report a bug or issue with the bundle
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below to help us fix the issue.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      description: Please verify you've completed these steps before submitting
+      options:
+        - label: I have searched existing issues to ensure this bug hasn't been reported
+          required: true
+        - label: I have tested with the latest version of the bundle
+          required: true
+        - label: I have enabled Test Mode and checked browser console for errors
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: When I do X, Y happens instead of Z
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Observe error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: I expected...
+    validations:
+      required: true
+
+  - type: input
+    id: nodecg-version
+    attributes:
+      label: NodeCG Version
+      description: What version of NodeCG are you using?
+      placeholder: e.g., 2.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: bundle-version
+    attributes:
+      label: Bundle Version
+      description: What version of the bundle are you using?
+      placeholder: e.g., 1.0.0 or commit hash
+    validations:
+      required: true
+
+  - type: input
+    id: streamerbot-version
+    attributes:
+      label: Streamer.bot Version
+      description: What version of Streamer.bot are you using? (if applicable)
+      placeholder: e.g., 1.0.1
+
+  - type: input
+    id: obs-version
+    attributes:
+      label: OBS Version
+      description: What version of OBS are you using? (if applicable)
+      placeholder: e.g., 30.1.0
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS
+        - Linux (Ubuntu/Debian)
+        - Linux (Other)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which component is affected?
+      options:
+        - Chat Overlay (Danmaku)
+        - Event Alerts
+        - Rolling Credits
+        - Dashboard
+        - Extension/Backend
+        - Test Mode
+        - Streamer.bot Connection
+        - Multiple Components
+        - Other/Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and Console Output
+      description: |
+        Please provide relevant logs:
+        - NodeCG console output
+        - Browser console output (from graphics URLs)
+        - Streamer.bot logs (if relevant)
+      placeholder: Paste logs here...
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem
+      placeholder: Drag and drop images here
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that might be relevant
+      placeholder: This started happening after...

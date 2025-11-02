@@ -1,0 +1,86 @@
+{
+  "name": "nodecg-shookie-stream-suite",
+  "version": "1.0.0",
+  "description": "Shookie's stream overlay suite: Niconico-style scrolling chat, event alerts, and weighted rolling credits for NodeCG",
+  "homepage": "https://github.com/shookieTea/nodecg-shookie-stream-suite",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shookieTea/nodecg-shookie-stream-suite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shookieTea/nodecg-shookie-stream-suite/issues"
+  },
+  "author": "shookieTea",
+  "license": "AGPL-3.0",
+  "keywords": ["nodecg", "nodecg-bundle", "stream", "overlay", "twitch", "chat", "alerts", "credits", "niconico", "danmaku", "streamerbot"],
+  "nodecg": {
+    "compatibleRange": "^2.0.0",
+    "dashboardPanels": [
+      {
+        "name": "streamerbot",
+        "title": "Streamer.Bot",
+        "file": "connection.html",
+        "width": 2
+      },
+      {
+        "name": "danmaku",
+        "title": "Danmaku",
+        "file": "danmaku.html",
+        "width": 2
+      },
+      {
+        "name": "credits",
+        "title": "Credits",
+        "file": "credits.html",
+        "width": 3
+      },
+      {
+        "name": "alerts",
+        "title": "Alerts",
+        "file": "alerts.html",
+        "width": 2
+      },
+      {
+        "name": "blocklist",
+        "title": "Blocklist",
+        "file": "blocklist.html",
+        "width": 2
+      },
+      {
+        "name": "test-mode",
+        "title": "Test Mode",
+        "file": "test-mode.html",
+        "width": 3
+      }
+    ],
+    "graphics": [
+      {
+        "file": "danmaku.html",
+        "width": 1920,
+        "height": 1080,
+        "singleInstance": true
+      },
+      {
+        "file": "credits.html",
+        "width": 1920,
+        "height": 1080,
+        "singleInstance": true
+      },
+      {
+        "file": "alerts.html",
+        "width": 1920,
+        "height": 1080,
+        "singleInstance": true
+      },
+      {
+        "file": "frosted-border.html",
+        "width": 1920,
+        "height": 1080,
+        "singleInstance": false
+      }
+    ]
+  },
+  "dependencies": {
+    "@streamerbot/client": "^1.12.2"
+  }
+}

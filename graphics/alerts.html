@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alerts Overlay</title>
+    <style>
+      /* ========================================================================
+       BASE RESET
+       ======================================================================== */
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      /* ========================================================================
+       COLOR PALETTE
+       Alert colors used across all graphics
+       ======================================================================== */
+
+      :root {
+        /* Alert colors */
+        --color-alert-follow: 149, 128, 255; /* Purple */
+        --color-alert-sub: 255, 128, 191; /* Pink */
+        --color-alert-gift: 138, 255, 128; /* Green */
+        --color-alert-cheer: 255, 255, 128; /* Yellow */
+        --color-alert-raid: 255, 128, 128; /* Red */
+
+        /* Background and frosted glass */
+        --color-bg-dark: 34, 33, 44;
+        --color-text-primary: 248, 248, 242;
+        --color-text-white: 255, 255, 255;
+        --color-text-shadow: 33, 44, 42;
+      }
+
+      /* ========================================================================
+       ALERT CONTAINER
+       ======================================================================== */
+
+      #alert-container {
+        position: fixed;
+        top: 0.83vw;
+        left: 0.83vw;
+        width: 11.7vw;
+        transform-origin: top left;
+        opacity: 0;
+        transform: translateY(-0.625vw);
+        transition:
+          opacity 0.2s,
+          transform 0.2s;
+        pointer-events: none;
+      }
+
+      #alert-container.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* ========================================================================
+       FROSTED GLASS ALERT BOX
+       ======================================================================== */
+
+      .alert-box {
+        background: linear-gradient(
+          135deg,
+          rgba(var(--color-bg-dark), 0.75) 0%,
+          rgba(var(--color-bg-dark), 0.65) 50%,
+          rgba(var(--color-bg-dark), 0.75) 100%
+        );
+        border-radius: 0.625vw;
+        padding: 0.52vw 0.625vw;
+        backdrop-filter: blur(12px) saturate(180%);
+        -webkit-backdrop-filter: blur(12px) saturate(180%);
+        border: 0.05vw solid rgba(var(--color-text-primary), 0.2);
+        box-shadow:
+          0 0.21vw 0.63vw rgba(0, 0, 0, 0.3),
+          inset 0 0.1vw 0.21vw rgba(var(--color-text-white), 0.1),
+          inset 0 -0.1vw 0.21vw rgba(0, 0, 0, 0.2);
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* Frosted glass overlay with gradient based on alert type */
+      .alert-box::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(var(--color-alert-follow), 0.15) 0%,
+          rgba(var(--color-alert-follow), 0.05) 100%
+        );
+        pointer-events: none;
+        transition: background 0.3s;
+        z-index: 0;
+      }
+
+      /* Make content sit above the gradient overlay */
+      .alert-box .alert-title,
+      .alert-box .alert-meta,
+      .alert-box .alert-message {
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Alert type gradient overlays */
+      .alert-box.alert-follow::before {
+        background: linear-gradient(
+          135deg,
+          rgba(var(--color-alert-follow), 0.2) 0%,
+          rgba(var(--color-alert-follow), 0.08) 50%,
+          rgba(var(--color-alert-follow), 0.15) 100%
+        );
+      }
+
+      .alert-box.alert-sub::before,
+      .alert-box.alert-resub::before {
+        background: linear-gradient(
+          135deg,
+          rgba(var(--color-alert-sub), 0.2) 0%,
+          rgba(var(--color-alert-sub), 0.08) 50%,
+          rgba(var(--color-alert-sub), 0.15) 100%
+        );
+      }
+
+      .alert-box.alert-giftsub::before {
+        background: linear-gradient(
+          135deg,
+          rgba(var(--color-alert-gift), 0.2) 0%,
+          rgba(var(--color-alert-gift), 0.08) 50%,
+          rgba(var(--color-alert-gift), 0.15) 100%
+        );
+      }
+
+      .alert-box.alert-cheer::before {
+        background: linear-gradient(
+          135deg,
+          rgba(var(--color-alert-cheer), 0.2) 0%,
+          rgba(var(--color-alert-cheer), 0.08) 50%,
+          rgba(var(--color-alert-cheer), 0.15) 100%
+        );
+      }
+
+      .alert-box.alert-raid::before {
+        background: linear-gradient(
+          135deg,
+          rgba(var(--color-alert-raid), 0.2) 0%,
+          rgba(var(--color-alert-raid), 0.08) 50%,
+          rgba(var(--color-alert-raid), 0.15) 100%
+        );
+      }
+
+      /* Border color accents */
+      .alert-box.alert-follow {
+        border-color: rgba(var(--color-alert-follow), 0.3);
+        box-shadow:
+          0 0.21vw 0.63vw rgba(0, 0, 0, 0.3),
+          0 0 0.52vw rgba(var(--color-alert-follow), 0.3),
+          inset 0 0.1vw 0.21vw rgba(var(--color-alert-follow), 0.2),
+          inset 0 -0.1vw 0.21vw rgba(0, 0, 0, 0.2);
+      }
+
+      .alert-box.alert-sub,
+      .alert-box.alert-resub {
+        border-color: rgba(var(--color-alert-sub), 0.3);
+        box-shadow:
+          0 0.21vw 0.63vw rgba(0, 0, 0, 0.3),
+          0 0 0.52vw rgba(var(--color-alert-sub), 0.3),
+          inset 0 0.1vw 0.21vw rgba(var(--color-alert-sub), 0.2),
+          inset 0 -0.1vw 0.21vw rgba(0, 0, 0, 0.2);
+      }
+
+      .alert-box.alert-giftsub {
+        border-color: rgba(var(--color-alert-gift), 0.3);
+        box-shadow:
+          0 0.21vw 0.63vw rgba(0, 0, 0, 0.3),
+          0 0 0.52vw rgba(var(--color-alert-gift), 0.3),
+          inset 0 0.1vw 0.21vw rgba(var(--color-alert-gift), 0.2),
+          inset 0 -0.1vw 0.21vw rgba(0, 0, 0, 0.2);
+      }
+
+      .alert-box.alert-cheer {
+        border-color: rgba(var(--color-alert-cheer), 0.3);
+        box-shadow:
+          0 0.21vw 0.63vw rgba(0, 0, 0, 0.3),
+          0 0 0.52vw rgba(var(--color-alert-cheer), 0.3),
+          inset 0 0.1vw 0.21vw rgba(var(--color-alert-cheer), 0.2),
+          inset 0 -0.1vw 0.21vw rgba(0, 0, 0, 0.2);
+      }
+
+      .alert-box.alert-raid {
+        border-color: rgba(var(--color-alert-raid), 0.3);
+        box-shadow:
+          0 0.21vw 0.63vw rgba(0, 0, 0, 0.3),
+          0 0 0.52vw rgba(var(--color-alert-raid), 0.3),
+          inset 0 0.1vw 0.21vw rgba(var(--color-alert-raid), 0.2),
+          inset 0 -0.1vw 0.21vw rgba(0, 0, 0, 0.2);
+      }
+
+      /* ========================================================================
+       TEXT STYLES
+       ======================================================================== */
+
+      .alert-title {
+        font-family: system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+        /* font-size set dynamically via JavaScript */
+        font-weight: bold;
+        color: rgb(var(--color-text-primary));
+        text-transform: uppercase;
+        margin-bottom: 0.31vw;
+        line-height: 1.35;
+        text-shadow: 0 0.1vw 0.21vw rgba(0, 0, 0, 0.5);
+      }
+
+      .alert-meta {
+        font-family: system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+        /* font-size set dynamically via JavaScript */
+        color: rgb(var(--color-text-white));
+        line-height: 1.5;
+        font-weight: 500;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: none;
+      }
+
+      .alert-meta-name {
+        display: block;
+        color: rgb(var(--color-text-white));
+        font-weight: 600;
+        text-shadow: 0 0.1vw 0.21vw rgba(0, 0, 0, 0.3);
+      }
+
+      .alert-meta-details {
+        display: block;
+        color: #e0e0e0;
+        font-size: 0.85em;
+        margin-top: 0.1vw;
+        font-weight: 400;
+      }
+
+      .alert-message {
+        font-family: system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+        /* font-size set dynamically via JavaScript */
+        color: #cccccc;
+        line-height: 1.35;
+        margin-top: 0.31vw;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="alert-container">
+      <div class="alert-box">
+        <div class="alert-title"></div>
+        <div class="alert-meta"></div>
+        <div class="alert-message"></div>
+      </div>
+    </div>
+
+    <script src="shared-logger.js"></script>
+    <script type="module">
+      // ============================================================================
+      // Imports
+      // ============================================================================
+
+      import {
+        getViewportDimensions,
+        calculateAlertFontSizes,
+        applyScaleModifier,
+      } from './viewport-utils.js';
+
+      import { escapeHTML } from './shared-utils.js';
+
+      // Get viewport dimensions
+      const { W, H } = getViewportDimensions();
+
+      // Settings replicant
+      const settingsRep = nodecg.Replicant('settings');
+      let ALERT_SCALE = 1.0;
+
+      const alertContainer = document.getElementById('alert-container');
+      const alertBox = alertContainer.querySelector('.alert-box');
+
+      let alertQueue = [];
+      let showing = false;
+      let paused = false;
+
+      // Logger - Using Shared Logger Utility
+      const logger = createLogger('Alerts', settingsRep);
+
+      // Update alert scale and pause state when settings change
+      settingsRep.on('change', (newValue) => {
+        if (!newValue) return;
+
+        const newScale = newValue.alerts?.scaleModifier || 1.0;
+        const newPaused = newValue.alerts?.paused || false;
+
+        // Update paused state
+        if (newPaused !== paused) {
+          paused = newPaused;
+          logger.info(`[Alerts] Queue ${paused ? 'paused' : 'resumed'}`);
+          // Try to show next alert if unpausing
+          if (!paused && !showing) {
+            showNextAlert();
+          }
+        }
+
+        // Only update and log if scale actually changed
+        if (newScale !== ALERT_SCALE) {
+          ALERT_SCALE = newScale;
+          alertContainer.style.transform = `scale(${ALERT_SCALE})`;
+
+          const { titleSize, metaSize, messageSize } =
+            calculateAlertFontSizes();
+          logger.debug(
+            `[Alerts] Viewport: ${W}×${H}, Fonts: ${titleSize}/${metaSize}/${messageSize}px, Scale: ${ALERT_SCALE.toFixed(1)}x`
+          );
+        }
+      });
+
+      /**
+       * Alert template configurations
+       * Centralizes all alert type definitions for easier maintenance
+       * Uses escapeHTML from shared-utils.js for XSS protection
+       */
+      const ALERT_TEMPLATES = {
+        follow: {
+          title: 'TWITCH — New Follower!',
+          buildMeta: (alert, safeName) =>
+            `<span class="alert-meta-name">${safeName}</span>`,
+        },
+        sub: {
+          title: 'TWITCH — New Subscriber!',
+          buildMeta: (alert, safeName) =>
+            `<span class="alert-meta-name">${safeName}</span><span class="alert-meta-details">Tier ${alert.tier} Subscription</span>`,
+        },
+        resub: {
+          title: 'TWITCH — Resubscription!',
+          buildMeta: (alert, safeName) =>
+            `<span class="alert-meta-name">${safeName}</span><span class="alert-meta-details">Tier ${alert.tier} · ${alert.months} month${alert.months === 1 ? '' : 's'}</span>`,
+        },
+        giftsub: {
+          title: 'TWITCH — Gift Subscription!',
+          buildMeta: (alert, safeName, safeRecipient) =>
+            `<span class="alert-meta-name">${safeName} -> ${safeRecipient}</span><span class="alert-meta-details">Tier ${alert.tier} Gift Sub</span>`,
+        },
+        cheer: {
+          title: 'TWITCH — Cheer!',
+          buildMeta: (alert, safeName) =>
+            `<span class="alert-meta-name">${safeName}</span><span class="alert-meta-details">${alert.bits} bit${alert.bits === 1 ? '' : 's'}</span>`,
+        },
+        raid: {
+          title: 'TWITCH — Incoming Raid!',
+          buildMeta: (alert, safeName) =>
+            `<span class="alert-meta-name">${safeName}</span><span class="alert-meta-details">${alert.viewers || 0} viewer${alert.viewers === 1 ? '' : 's'}</span>`,
+        },
+        default: {
+          title: 'TWITCH — Alert',
+          buildMeta: (alert, safeName) =>
+            `<span class="alert-meta-name">${safeName}</span>`,
+        },
+      };
+
+      /**
+       * Builds alert content using template configuration
+       * @param {Object} alert - Alert data
+       * @returns {Object} { title, metaHTML, message }
+       */
+      function buildAlertContent(alert) {
+        // Escape user-provided content for XSS protection
+        const safeName = escapeHTML(alert.displayName || '');
+        const safeRecipient = escapeHTML(alert.recipient || '');
+        const message = alert.message || '';
+
+        // Get template for alert type (fallback to default)
+        const template = ALERT_TEMPLATES[alert.type] || ALERT_TEMPLATES.default;
+
+        return {
+          title: template.title,
+          metaHTML: template.buildMeta(alert, safeName, safeRecipient),
+          message,
+        };
+      }
+
+      /**
+       * Shows next alert from queue
+       */
+      function showNextAlert() {
+        // Don't show if paused, already showing, or queue is empty
+        if (paused || showing || alertQueue.length === 0) return;
+
+        const alert = alertQueue.shift();
+        showing = true;
+
+        // Build alert content
+        const content = buildAlertContent(alert);
+
+        // Calculate viewport-responsive font sizes
+        const { titleSize, metaSize, messageSize } = calculateAlertFontSizes();
+
+        const titleEl = alertContainer.querySelector('.alert-title');
+        const metaEl = alertContainer.querySelector('.alert-meta');
+        const messageEl = alertContainer.querySelector('.alert-message');
+
+        // Apply content (use innerHTML for meta to support structured layout)
+        titleEl.textContent = content.title;
+        metaEl.innerHTML = content.metaHTML;
+        messageEl.textContent = content.message;
+
+        // Apply viewport-responsive font sizes
+        titleEl.style.fontSize = `${titleSize}px`;
+        metaEl.style.fontSize = `${metaSize}px`;
+        messageEl.style.fontSize = `${messageSize}px`;
+
+        // Hide message element if empty
+        messageEl.style.display = content.message ? 'block' : 'none';
+
+        // Apply alert type styling class
+        const alertType = alert.type || 'default';
+
+        // Remove all alert-type classes first
+        alertBox.classList.remove(
+          'alert-follow',
+          'alert-sub',
+          'alert-resub',
+          'alert-giftsub',
+          'alert-cheer',
+          'alert-raid'
+        );
+
+        // Add appropriate class based on alert type
+        alertBox.classList.add(`alert-${alertType}`);
+
+        // Show alert
+        alertContainer.classList.add('show');
+
+        const duration = settingsRep.value?.alerts?.duration || 5000;
+
+        setTimeout(() => {
+          alertContainer.classList.remove('show');
+          setTimeout(() => {
+            showing = false;
+            // Only show next if not paused
+            if (!paused) {
+              showNextAlert();
+            }
+          }, 200); // Wait for fade-out (200ms per spec)
+        }, duration);
+      }
+
+      // Listen for alert messages from extension
+      nodecg.listenFor('alert:show', (alert) => {
+        logger.debug('[Alerts] Received alert:', alert);
+
+        if (!settingsRep.value?.alerts?.enabled) {
+          logger.info('[Alerts] Alerts disabled, ignoring');
+          return;
+        }
+
+        // Always queue alerts (sequential display)
+        alertQueue.push(alert);
+
+        // Only try to show if not paused
+        if (!paused) {
+          showNextAlert();
+        } else {
+          logger.info(
+            `[Alerts] Alert queued (paused). Queue length: ${alertQueue.length}`
+          );
+        }
+      });
+
+      const { titleSize, metaSize, messageSize } = calculateAlertFontSizes();
+      logger.info('[Alerts] Graphics loaded - Frosted Glass style');
+      logger.info(
+        `[Alerts] Viewport: ${W}×${H}, Fonts: ${titleSize}/${metaSize}/${messageSize}px`
+      );
+    </script>
+  </body>
+</html>

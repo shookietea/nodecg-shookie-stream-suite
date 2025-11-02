@@ -1,0 +1,1116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Danmaku Overlay</title>
+    <style>
+      /* ========================================================================
+       BASE RESET
+       ======================================================================== */
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      /* ========================================================================
+       COLOR PALETTE
+       Alert colors used across all graphics
+       ======================================================================== */
+
+      :root {
+        /* Alert colors */
+        --color-alert-follow: 149, 128, 255; /* Purple */
+        --color-alert-sub: 255, 128, 191; /* Pink */
+        --color-alert-gift: 138, 255, 128; /* Green */
+        --color-alert-cheer: 255, 255, 128; /* Yellow */
+        --color-alert-raid: 255, 128, 128; /* Red */
+
+        /* Background and frosted glass */
+        --color-bg-dark: 34, 33, 44;
+        --color-text-primary: 248, 248, 242;
+        --color-text-white: 255, 255, 255;
+        --color-text-shadow: 33, 44, 42;
+      }
+
+      /* ========================================================================
+       DANMAKU STAGE
+       ======================================================================== */
+
+      #stage {
+        position: absolute;
+        top: 5vh; /* 5% clearance from top */
+        left: 0;
+        width: 100vw;
+        height: 90vh; /* 5% clearance top + bottom = 90% usable */
+        overflow: hidden;
+        contain: layout paint;
+      }
+
+      .danmaku-message {
+        position: absolute;
+        white-space: nowrap;
+        font-family: Arial, 'Hiragino Sans', 'MS PGothic', sans-serif;
+        font-weight: bold;
+        color: rgb(var(--color-text-white));
+        text-shadow:
+          -2px -2px 3px rgb(var(--color-text-shadow)),
+          2px -2px 3px rgb(var(--color-text-shadow)),
+          -2px 2px 3px rgb(var(--color-text-shadow)),
+          2px 2px 3px rgb(var(--color-text-shadow));
+        will-change: transform;
+        pointer-events: none;
+        contain: layout paint;
+        /* Padding to prevent text shadow and descender clipping */
+        padding: 4px 6px;
+      }
+
+      .danmaku-message img {
+        vertical-align: middle;
+        margin: 0 2px;
+      }
+
+      .danmaku-username {
+        color: inherit;
+        margin-right: 4px;
+      }
+
+      .danmaku-badge {
+        vertical-align: middle;
+        margin-right: 2px;
+      }
+
+      .danmaku-emote {
+        vertical-align: middle;
+        margin: 0 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+
+    <script src="shared-logger.js"></script>
+    <script type="module">
+      // ============================================================================
+      // Imports
+      // ============================================================================
+
+      import {
+        getViewportDimensions,
+        calculateDanmakuBaseFontSize,
+        applyScaleModifier,
+      } from './viewport-utils.js';
+
+      // ============================================================================
+      // Constants - Based on TECHNICAL_SPEC.md Section 1.2
+      // ============================================================================
+
+      const STAGE = document.getElementById('stage');
+
+      // Viewport dimensions (adapts to OBS Browser Source resolution)
+      const { W, H } = getViewportDimensions();
+
+      // Collision and placement constants (fixed)
+      const START_OFFSET = 10; // Initial spawn offset from right edge (px)
+      const EDGE_BUFFER = 40; // Buffer from left edge before removal (px)
+
+      // Row placement constants (fixed)
+      const ROW_STEP_FACTOR = 0.85; // Base row height multiplier
+      const RAND_OFFSET_BURST = 0.35; // Burst jitter: ±35%
+
+      // Dynamic density-based constants (updated based on messageDensity setting)
+      let H_GAP = 32; // Horizontal gap between messages (px)
+      let V_GAP = 6; // Vertical gap between messages (px)
+      let RAND_OFFSET = 0.25; // Normal jitter: ±25%
+      let OVERLAP_TOLERANCE = 0.0; // Overlap tolerance (fraction of message height)
+      let MAX_ACTIVE_MULTIPLIER = 1.2; // Max active messages multiplier
+
+      // Queue limits and timing
+      const HOLD_MS = 5000; // Hold queue delay (5 seconds) - for moderation
+      const MAX_PENDING = 600; // Max pending queue size
+      const MSG_DUR_SEC = 10.0; // Default message duration (seconds)
+      const DRAIN_BUDGET = 6; // Messages to process per frame
+
+      // Dynamic MAX_ACTIVE calculation (based on realistic screen capacity)
+      // At 1080p with default settings: ~23 rows × 3-4 messages per row = ~69-92 realistic max
+      let MAX_ACTIVE = 100; // Default safety limit (recalculated on settings update)
+
+      // Dynamic speed scaling - Progressive boost based on queue depth
+      // The more messages in queue, the faster they move to minimize latency
+      const MIN_SPEED = 50; // Minimum px/s speed
+
+      // Speed scaling tiers (multipliers applied based on queue depth)
+      // Aligned with density thresholds for aggressive latency reduction
+      const SPEED_TIERS = [
+        { threshold: 0, multiplier: 1.0 }, // 0-2 pending: Normal speed
+        { threshold: 3, multiplier: 1.2 }, // 3-7 pending: 20% faster
+        { threshold: 8, multiplier: 1.4 }, // 8-14 pending: 40% faster
+        { threshold: 15, multiplier: 1.7 }, // 15-24 pending: 70% faster
+        { threshold: 25, multiplier: 2.0 }, // 25+ pending: 2x speed (max)
+      ];
+
+      // Message Density Presets (mirrored from extension/constants.js)
+      // Tuned for minimal latency while preventing overlaps
+      const DENSITY_PRESETS = {
+        neat: {
+          hGap: 40,
+          vGap: 10,
+          randOffset: 0.15,
+          overlapTolerance: 0.0,
+          maxActiveMultiplier: 1.0,
+        },
+        normal: {
+          hGap: 32,
+          vGap: 6,
+          randOffset: 0.25,
+          overlapTolerance: 0.0,
+          maxActiveMultiplier: 1.3,
+        },
+        cozy: {
+          hGap: 24,
+          vGap: 4,
+          randOffset: 0.4,
+          overlapTolerance: 0.15,
+          maxActiveMultiplier: 1.8,
+        },
+        packed: {
+          hGap: 18,
+          vGap: 2,
+          randOffset: 0.6,
+          overlapTolerance: 0.35,
+          maxActiveMultiplier: 2.3,
+        },
+        chaotic: {
+          hGap: 12,
+          vGap: 0,
+          randOffset: 0.8,
+          overlapTolerance: 0.55,
+          maxActiveMultiplier: 3.0,
+        },
+      };
+
+      // Adaptive density thresholds based on pending queue depth
+      // Latency-focused: Switch densities aggressively to minimize queue buildup
+      const ADAPTIVE_THRESHOLDS = [
+        { threshold: 0, preset: 'neat' }, // 0-2 pending: Maximum spacing
+        { threshold: 3, preset: 'normal' }, // 3-7 pending: Balanced
+        { threshold: 8, preset: 'cozy' }, // 8-14 pending: Tighter packing
+        { threshold: 15, preset: 'packed' }, // 15-24 pending: High density
+        { threshold: 25, preset: 'chaotic' }, // 25+ pending: Maximum throughput
+      ];
+
+      let currentAdaptiveDensity = 'normal';
+      let densityChangeDebounce = 0;
+
+      /**
+       * Applies a density preset to update collision constants
+       * @param {string} presetName - One of: neat, normal, cozy, packed, chaotic
+       */
+      function applyDensityPreset(presetName) {
+        const preset = DENSITY_PRESETS[presetName] || DENSITY_PRESETS.normal;
+        H_GAP = preset.hGap;
+        V_GAP = preset.vGap;
+        RAND_OFFSET = preset.randOffset;
+        OVERLAP_TOLERANCE = preset.overlapTolerance;
+        MAX_ACTIVE_MULTIPLIER = preset.maxActiveMultiplier;
+
+        logger.debug(
+          `[Danmaku] Density preset: ${presetName} (hGap=${H_GAP}px, vGap=${V_GAP}px, jitter=±${(RAND_OFFSET * 100).toFixed(0)}%, overlap=${(OVERLAP_TOLERANCE * 100).toFixed(0)}%)`
+        );
+
+        // Recalculate MAX_ACTIVE with new settings
+        updateSizes();
+      }
+
+      /**
+       * Determines appropriate density based on pending queue depth
+       * Uses hysteresis to prevent rapid switching
+       * @param {number} pendingCount - Current pending queue size
+       * @returns {string} Density preset name
+       */
+      function getAdaptiveDensity(pendingCount) {
+        // Find the highest applicable threshold
+        let targetDensity = 'neat';
+        for (let i = ADAPTIVE_THRESHOLDS.length - 1; i >= 0; i--) {
+          if (pendingCount >= ADAPTIVE_THRESHOLDS[i].threshold) {
+            targetDensity = ADAPTIVE_THRESHOLDS[i].preset;
+            break;
+          }
+        }
+
+        // Apply hysteresis: only change if target is different AND debounce expired
+        // This prevents rapid flickering between densities
+        if (targetDensity !== currentAdaptiveDensity) {
+          densityChangeDebounce--;
+          if (densityChangeDebounce <= 0) {
+            // Allow change after 1 second (60 frames @ 60fps)
+            currentAdaptiveDensity = targetDensity;
+            densityChangeDebounce = 60; // Reset debounce
+            logger.info(
+              `[Danmaku] Adaptive density: ${targetDensity} (pending: ${pendingCount})`
+            );
+            return targetDensity;
+          }
+        } else {
+          // Reset debounce if target matches current
+          densityChangeDebounce = 60;
+        }
+
+        return currentAdaptiveDensity;
+      }
+
+      // ============================================================================
+      // Logger - Using Shared Logger Utility
+      // ============================================================================
+
+      const settingsRep = nodecg.Replicant('settings');
+      const logger = createLogger('Danmaku', settingsRep);
+
+      // ============================================================================
+      // Scaling System
+      // ============================================================================
+
+      let BASE_FONT_SIZE = calculateDanmakuBaseFontSize();
+      let SCALE_MODIFIER = 1.0;
+
+      // Calculate derived sizes and realistic max active messages
+      function updateSizes() {
+        const baseFontSize = calculateDanmakuBaseFontSize();
+        BASE_FONT_SIZE = applyScaleModifier(baseFontSize, SCALE_MODIFIER);
+
+        // Calculate realistic MAX_ACTIVE based on viewport and density preset
+        // Row spacing = font size × ROW_STEP_FACTOR (0.85)
+        const rowHeight = BASE_FONT_SIZE * ROW_STEP_FACTOR + V_GAP;
+        const usableHeight = H * 0.9; // 90% of viewport (5% top + bottom clearance)
+        const estimatedRows = Math.floor(usableHeight / rowHeight);
+        // Base capacity: 4 messages per row, then apply density multiplier
+        const baseMax = Math.max(50, estimatedRows * 4);
+        MAX_ACTIVE = Math.floor(baseMax * MAX_ACTIVE_MULTIPLIER);
+
+        logger.debug(
+          `[Danmaku] Viewport: ${W}×${H}, Font: ${BASE_FONT_SIZE.toFixed(1)}px (${SCALE_MODIFIER.toFixed(1)}x), Rows: ~${estimatedRows}, Max Active: ${MAX_ACTIVE} (${MAX_ACTIVE_MULTIPLIER.toFixed(1)}x)`
+        );
+      }
+
+      // ============================================================================
+      // Data Structures - Three-Tier Queue System
+      // ============================================================================
+
+      // Hold queue: messages waiting 5 seconds before placement
+      const holdQueue = [];
+
+      // Pending queue: messages ready for collision detection
+      const pendingQueue = [];
+
+      // Active messages: currently animating on screen
+      const activeMessages = [];
+
+      // Lookup structures for deletion
+      const messageMap = new Map(); // messageId -> message object
+      const userMessages = new Map(); // username -> Set of message IDs
+
+      // ============================================================================
+      // Settings Management
+      // ============================================================================
+
+      let settings = {
+        danmaku: {
+          enabled: true,
+          speedMult: 1.0,
+          scaleModifier: 1.0,
+          showUsernames: false,
+          showEmotes: true,
+          showEmojis: false,
+          showText: true,
+          messageDensity: 'normal',
+        },
+      };
+
+      settingsRep.on('change', (newValue) => {
+        if (!newValue) return;
+        settings = newValue;
+
+        const newModifier = settings.danmaku?.scaleModifier || 1.0;
+        const newDensity = settings.danmaku?.messageDensity || 'normal';
+
+        // Check if scale modifier or density changed
+        const scaleChanged = newModifier !== SCALE_MODIFIER;
+        const densityChanged =
+          newDensity !== (DENSITY_PRESETS[newDensity] ? newDensity : 'normal');
+
+        if (scaleChanged) {
+          SCALE_MODIFIER = newModifier;
+        }
+
+        // Apply density preset (which calls updateSizes() internally)
+        if (densityChanged || scaleChanged) {
+          applyDensityPreset(newDensity);
+        }
+      });
+
+      // ============================================================================
+      // Message Creation - DOM Building with Visual Toggles
+      // ============================================================================
+
+      /**
+       * Builds DOM element for a danmaku message
+       * Respects visual toggle settings (emotes, usernames, etc.)
+       * @param {Object} data - Normalized message data
+       * @returns {HTMLElement} Message element
+       */
+      function buildMessageDOM(data) {
+        const el = document.createElement('div');
+        el.className = 'danmaku-message';
+        el.style.fontSize = `${BASE_FONT_SIZE}px`;
+        el.style.color = data.color || '#ffffff';
+
+        // Build content safely using DOM methods instead of innerHTML (prevents XSS)
+        const fragment = document.createDocumentFragment();
+        const emoteSize = Math.round(BASE_FONT_SIZE * 0.85);
+
+        // Username (if enabled)
+        if (settings.danmaku.showUsernames && data.username) {
+          const usernameSpan = document.createElement('span');
+          usernameSpan.className = 'danmaku-username';
+          usernameSpan.textContent = data.username + ':'; // textContent auto-escapes
+          fragment.appendChild(usernameSpan);
+        }
+
+        if (settings.danmaku.showText) {
+          // Show text content with optional emote/emoji replacements
+          let textContent = data.text || '';
+
+          // Remove Unicode emoji if disabled
+          if (!settings.danmaku.showEmojis) {
+            textContent = textContent.replace(
+              /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu,
+              ''
+            );
+          }
+
+          // Build text with emotes inserted
+          if (
+            settings.danmaku.showEmotes &&
+            data.emotes &&
+            data.emotes.length > 0
+          ) {
+            // Sort emotes by startIndex ascending for sequential processing
+            const sortedEmotes = [...data.emotes].sort(
+              (a, b) => a.startIndex - b.startIndex
+            );
+
+            let lastIndex = 0;
+            for (const emote of sortedEmotes) {
+              // Add text before emote (safely using textContent)
+              if (emote.startIndex > lastIndex) {
+                const textNode = document.createTextNode(
+                  textContent.slice(lastIndex, emote.startIndex)
+                );
+                fragment.appendChild(textNode);
+              }
+
+              // Add emote image
+              if (emote.imageUrl) {
+                const img = document.createElement('img');
+                img.className = 'danmaku-emote';
+                img.src = emote.imageUrl; // URL from Streamer.bot (trusted source)
+                img.height = emoteSize;
+                img.alt = emote.name || '';
+                img.onerror = function () {
+                  this.style.display = 'none';
+                  this.onerror = null; // Clean up handler
+                };
+                fragment.appendChild(img);
+              }
+
+              lastIndex = emote.endIndex + 1;
+            }
+
+            // Add remaining text after last emote
+            if (lastIndex < textContent.length) {
+              const textNode = document.createTextNode(
+                textContent.slice(lastIndex)
+              );
+              fragment.appendChild(textNode);
+            }
+          } else {
+            // No emotes, just add plain text safely
+            const textNode = document.createTextNode(textContent);
+            fragment.appendChild(textNode);
+          }
+        } else {
+          // Show only emotes (no text)
+          if (
+            settings.danmaku.showEmotes &&
+            data.emotes &&
+            data.emotes.length > 0
+          ) {
+            for (const emote of data.emotes) {
+              if (emote.imageUrl) {
+                const img = document.createElement('img');
+                img.className = 'danmaku-emote';
+                img.src = emote.imageUrl;
+                img.height = emoteSize;
+                img.alt = emote.name || '';
+                img.onerror = function () {
+                  this.style.display = 'none';
+                  this.onerror = null;
+                };
+                fragment.appendChild(img);
+              }
+            }
+          }
+        }
+
+        el.appendChild(fragment);
+
+        return el;
+      }
+
+      /**
+       * Measures message dimensions after DOM append
+       * CRITICAL: Measure after append, before animation
+       * Adds padding to prevent text shadow and descender clipping
+       * @param {HTMLElement} el - Message element
+       * @returns {Object} {w: width, h: height}
+       */
+      function measureMessage(el) {
+        STAGE.appendChild(el);
+        const w = el.offsetWidth;
+        const h = el.offsetHeight;
+        STAGE.removeChild(el);
+
+        // Add padding to prevent text shadow (2-3px) and descender clipping
+        // Width padding: 10px (5px each side for shadows + letter edges)
+        // Height padding: 8px (4px top/bottom for shadows + descenders like 'g', 'j', 'y')
+        return {
+          w: w + 10,
+          h: h + 8,
+        };
+      }
+
+      // ============================================================================
+      // Speed Calculation - Ensures Consistent On-Screen Duration
+      // ============================================================================
+
+      /**
+       * Calculates message scroll speed
+       * Formula: distance / duration × multipliers
+       * @param {number} messageWidth - Message width in pixels
+       * @returns {number} Speed in px/s
+       */
+      function calculateSpeed(messageWidth) {
+        // Total distance: viewport width + message width + buffers
+        const distance = W + messageWidth + START_OFFSET + EDGE_BUFFER;
+
+        // Base speed for consistent duration
+        let speed = distance / MSG_DUR_SEC;
+
+        // Apply user speed multiplier
+        speed *= settings.danmaku?.speedMult || 1.0;
+
+        // Dynamic speed boost based on pending queue depth
+        // Progressive tiers minimize latency by speeding up messages as queue grows
+        const pendingCount = pendingQueue.length;
+        const queueBoost = getSpeedMultiplierForQueue(pendingCount);
+        speed *= queueBoost;
+
+        // Enforce minimum speed
+        return Math.max(speed, MIN_SPEED);
+      }
+
+      // ============================================================================
+      // Row Placement with Jitter
+      // ============================================================================
+
+      /**
+       * Calculates candidate Y positions for message placement
+       * Uses density-based jitter for organic placement
+       * Higher density = more jitter = more placement variety
+       * @param {number} messageHeight - Message height in pixels
+       * @param {boolean} isBurst - Is burst message (for testing)
+       * @returns {Array<number>} Candidate Y positions
+       */
+      function getCandidateRows(messageHeight, isBurst = false) {
+        const maxY = H * 0.9 - messageHeight;
+        const rowStep = messageHeight * ROW_STEP_FACTOR;
+        const jitter = isBurst ? RAND_OFFSET_BURST : RAND_OFFSET;
+
+        const rows = [];
+        let y = 0;
+
+        while (y < maxY) {
+          // Apply jitter based on density preset (15%-80% from RAND_OFFSET)
+          // Creates organic vertical variety while maintaining predictable base positions
+          const jitterAmount = rowStep * jitter * (Math.random() * 2 - 1);
+          const jitteredY = Math.max(0, Math.min(maxY, y + jitterAmount));
+          rows.push(jitteredY);
+          y += rowStep;
+        }
+
+        return rows;
+      }
+
+      // ============================================================================
+      // Collision Detection - 3-Part Algorithm (CRITICAL)
+      // ============================================================================
+
+      /**
+       * Tests if a message can be placed at (y, h) without collision
+       * CRITICAL: All three checks are required - do not simplify
+       * @param {number} y - Y position to test
+       * @param {number} h - Message height
+       * @param {number} speed - Message speed (px/s)
+       * @param {number} width - Message width
+       * @returns {boolean} True if no collision
+       */
+      function fitsAt(y, h, speed, width) {
+        const yTop = y;
+        const yBot = y + h;
+        const spawnX = W + START_OFFSET;
+
+        // Check against all active messages
+        for (const m of activeMessages) {
+          const mTop = m.y;
+          const mBot = m.y + m.h;
+
+          // CHECK 1: Vertical overlap (prevents stacking)
+          // Allow some overlap based on OVERLAP_TOLERANCE setting
+          // Higher tolerance = allow more overlap = reduce required gap
+          const overlapAmount = h * OVERLAP_TOLERANCE;
+          const effectiveVGap = Math.max(0, V_GAP - overlapAmount);
+
+          // Skip if messages are vertically separated (no collision zone)
+          // New message is ABOVE existing: bottom of new + gap <= top of existing
+          // New message is BELOW existing: top of new >= bottom of existing + gap
+          if (yBot + effectiveVGap <= mTop || yTop >= mBot + effectiveVGap) {
+            continue; // No vertical overlap, no collision
+          }
+
+          // CHECK 2: Initial spawn gap (prevents spawn collision)
+          // Calculate horizontal gap at spawn point
+          const mRightEdge = m.x + m.w;
+          const initialGap = spawnX - mRightEdge;
+
+          if (initialGap < H_GAP) {
+            return false; // Too close at spawn
+          }
+
+          // CHECK 3: Overtake prevention (prevents faster catching slower)
+          // At higher densities, allow overtakes if they happen far enough offscreen
+          if (speed > m.speed) {
+            // New message is faster - check if it would catch up
+            const currentGap = m.x - spawnX;
+            const relativeSpeed = speed - m.speed;
+            const tCatch = currentGap / relativeSpeed; // Time in seconds until catch-up
+
+            // Calculate position where leading edge of new message catches trailing edge of existing
+            // Account for message widths to prevent overlap
+            const catchX = spawnX - speed * tCatch;
+            const existingTrailingEdge = m.x - m.w;
+            const actualCatchX = catchX + width; // Add new message width to get trailing edge position
+
+            // Allow overtake if it happens far enough left (off-screen or near edge)
+            // Tolerance scales with density: higher density = more permissive
+            // Base tolerance + extra space for message widths
+            const baseTolerance = W * (0.15 + OVERLAP_TOLERANCE * 0.3); // 15%-33% of screen width
+            const widthBuffer = (width + m.w) * 0.5; // Half of combined widths as buffer
+            const overtakeTolerance = baseTolerance + widthBuffer;
+
+            if (actualCatchX > -overtakeTolerance) {
+              return false; // Would catch too early (still visible)
+            }
+          }
+        }
+
+        return true; // No collision detected
+      }
+
+      /**
+       * Finds collision-free Y position for message
+       * Tests candidate rows in round-robin fashion
+       * @param {Object} messageData - Message with w, h, speed
+       * @param {boolean} isBurst - Is burst message
+       * @returns {number|null} Y position or null if no space
+       */
+      function findPlacement(messageData, isBurst = false) {
+        const candidates = getCandidateRows(messageData.h, isBurst);
+
+        // Test each candidate position
+        for (const y of candidates) {
+          if (fitsAt(y, messageData.h, messageData.speed, messageData.w)) {
+            return y;
+          }
+        }
+
+        return null; // No collision-free position found
+      }
+
+      // ============================================================================
+      // Queue Processing - Budget System
+      // ============================================================================
+
+      /**
+       * Processes hold queue -> pending queue
+       * Moves messages that have waited HOLD_MS (5 seconds)
+       * @param {number} budget - Max messages to process
+       */
+      function processHoldQueue(budget) {
+        const now = performance.now();
+        let processed = 0;
+
+        // Process messages whose hold time has expired
+        while (holdQueue.length > 0 && processed < budget) {
+          const first = holdQueue[0];
+
+          if (now - first.holdStart < HOLD_MS) {
+            break; // First message not ready yet
+          }
+
+          // Move to pending queue
+          holdQueue.shift();
+
+          // Enforce pending queue max
+          if (pendingQueue.length < MAX_PENDING) {
+            pendingQueue.push(first);
+          } else {
+            logger.warn('[Danmaku] Pending queue full, dropping message');
+          }
+
+          processed++;
+        }
+      }
+
+      /**
+       * Gets speed multiplier based on pending queue depth
+       * Progressive tiers ensure messages speed up as queue grows
+       * @param {number} count - Pending queue count
+       * @returns {number} Speed multiplier (1.0 - 2.0)
+       */
+      function getSpeedMultiplierForQueue(count) {
+        // Find the highest applicable tier
+        for (let i = SPEED_TIERS.length - 1; i >= 0; i--) {
+          if (count >= SPEED_TIERS[i].threshold) {
+            return SPEED_TIERS[i].multiplier;
+          }
+        }
+        return 1.0; // Default
+      }
+
+      /**
+       * Drains pending queue -> active messages
+       * Attempts collision detection and placement with density-based tolerance
+       * @param {number} budget - Max messages to process
+       */
+      function drainPendingQueue(budget) {
+        let processed = 0;
+        let i = 0;
+
+        while (i < pendingQueue.length && processed < budget) {
+          const msg = pendingQueue[i];
+
+          // Respect max active limit (performance safeguard)
+          if (activeMessages.length >= MAX_ACTIVE) {
+            break;
+          }
+
+          // Attempt placement using collision detection
+          const y = findPlacement(msg, msg.isBurst || false);
+
+          if (y !== null) {
+            // Placement successful
+            msg.y = y;
+            msg.x = W + START_OFFSET; // Start position (off-screen right)
+
+            // Add to active messages
+            activeMessages.push(msg);
+            messageMap.set(msg.id, msg);
+
+            // Track by username for deletion
+            if (!userMessages.has(msg.userKey)) {
+              userMessages.set(msg.userKey, new Set());
+            }
+            userMessages.get(msg.userKey).add(msg.id);
+
+            // Append to DOM
+            msg.el.style.transform = `translate3d(${msg.x}px, ${msg.y}px, 0)`;
+            STAGE.appendChild(msg.el);
+
+            // Remove from pending
+            pendingQueue.splice(i, 1);
+            processed++;
+          } else {
+            // No placement found, try next message
+            i++;
+          }
+        }
+      }
+
+      // ============================================================================
+      // Animation Loop - requestAnimationFrame with Delta Time
+      // ============================================================================
+
+      let lastTimestamp = null;
+      let frameCount = 0;
+
+      /**
+       * Main animation loop
+       * Uses requestAnimationFrame with delta time for smooth scrolling
+       * @param {number} timestamp - High-resolution timestamp
+       */
+      function tick(timestamp) {
+        // Calculate delta time (seconds)
+        const dt = lastTimestamp ? (timestamp - lastTimestamp) / 1000 : 0;
+        lastTimestamp = timestamp;
+        frameCount++;
+
+        // Adaptive density: adjust collision parameters based on queue depth
+        // Check every 30 frames (0.5 seconds @ 60fps) to reduce overhead
+        if (frameCount % 30 === 0) {
+          const targetDensity = getAdaptiveDensity(pendingQueue.length);
+          if (targetDensity !== currentAdaptiveDensity) {
+            applyDensityPreset(targetDensity);
+          }
+        }
+
+        // Calculate processing budget (adaptive based on queue depth)
+        // Aggressive scaling to minimize latency
+        let budget = DRAIN_BUDGET;
+        const activeCount = activeMessages.length;
+        const pendingCount = pendingQueue.length;
+
+        // Progressive budget scaling based on queue depth
+        // Aligned with density/speed thresholds for rapid queue drainage
+        if (pendingCount >= 25) {
+          budget = 16; // Emergency: 16 messages/frame at 25+ pending
+        } else if (pendingCount >= 15) {
+          budget = 12; // High load: 12 messages/frame
+        } else if (pendingCount >= 8) {
+          budget = 10; // Moderate load: 10 messages/frame
+        } else if (pendingCount >= 3) {
+          budget = 8; // Light load: 8 messages/frame
+        }
+        // else: Normal load uses DRAIN_BUDGET (6 messages/frame)
+
+        // Process queues
+        processHoldQueue(Math.max(4, Math.floor(budget / 2))); // Half budget for hold queue
+        drainPendingQueue(budget);
+
+        // Update active message positions
+        for (let i = activeMessages.length - 1; i >= 0; i--) {
+          const msg = activeMessages[i];
+
+          // Move left
+          msg.x -= msg.speed * dt;
+
+          // Update DOM (hardware-accelerated transform)
+          msg.el.style.transform = `translate3d(${msg.x}px, ${msg.y}px, 0)`;
+
+          // Remove if off-screen (left edge + buffer)
+          if (msg.x + msg.w < -EDGE_BUFFER) {
+            unregisterMessage(msg, { removeDom: true });
+          }
+        }
+
+        // Log stats every 60 frames (debug)
+        if (frameCount % 300 === 0) {
+          logger.debug(
+            `[Danmaku] Hold: ${holdQueue.length}, Pending: ${pendingQueue.length}, Active: ${activeCount}`
+          );
+        }
+
+        // Continue animation loop
+        requestAnimationFrame(tick);
+      }
+
+      // ============================================================================
+      // Message Management - Add/Remove
+      // ============================================================================
+
+      /**
+       * Adds a new message to hold queue
+       * Creates DOM element, measures dimensions, calculates speed
+       * @param {Object} data - Normalized message from extension
+       */
+      function addMessage(data) {
+        // Build DOM element
+        const el = buildMessageDOM(data);
+
+        // Measure dimensions (after DOM append)
+        const { w, h } = measureMessage(el);
+
+        // Calculate speed
+        const speed = calculateSpeed(w);
+
+        // Create message object
+        const msg = {
+          id: data.messageId,
+          userKey: data.username.toLowerCase(),
+          el,
+          w,
+          h,
+          speed,
+          x: 0,
+          y: 0,
+          holdStart: performance.now(),
+          isBurst: data.burst || false,
+        };
+
+        // Add to hold queue
+        holdQueue.push(msg);
+      }
+
+      /**
+       * Removes message from active display
+       * Cleans up DOM and lookup structures
+       * @param {Object} msg - Message object
+       * @param {Object} opts - Options {removeDom: boolean}
+       */
+      function unregisterMessage(msg, opts = {}) {
+        // Remove from active array
+        const idx = activeMessages.indexOf(msg);
+        if (idx !== -1) {
+          activeMessages.splice(idx, 1);
+        }
+
+        // Remove from lookup maps
+        messageMap.delete(msg.id);
+
+        const userSet = userMessages.get(msg.userKey);
+        if (userSet) {
+          userSet.delete(msg.id);
+          if (userSet.size === 0) {
+            userMessages.delete(msg.userKey);
+          }
+        }
+
+        // Remove from DOM
+        if (opts.removeDom && msg.el && msg.el.parentNode) {
+          msg.el.remove();
+          msg.el = null; // Clear reference for GC
+        }
+      }
+
+      // ============================================================================
+      // Deletion Handlers - Message/User/Clear
+      // ============================================================================
+
+      /**
+       * Deletes a single message by ID
+       * Searches all queues (hold, pending, active)
+       * @param {string} messageId - Message ID from Streamer.bot
+       */
+      function deleteMessage(messageId) {
+        logger.debug(`[Danmaku] Delete request for: ${messageId}`);
+        logger.debug(
+          `[Danmaku] Queue sizes - Hold: ${holdQueue.length}, Pending: ${pendingQueue.length}, Active: ${activeMessages.length}`
+        );
+
+        let found = false;
+
+        // Check hold queue
+        const holdIdx = holdQueue.findIndex((m) => m.id === messageId);
+        if (holdIdx !== -1) {
+          logger.debug(
+            `[Danmaku] ✓ Found in hold queue (index ${holdIdx}/${holdQueue.length})`
+          );
+          const msg = holdQueue[holdIdx];
+          holdQueue.splice(holdIdx, 1);
+          if (msg.el && msg.el.parentNode) {
+            msg.el.remove();
+          }
+          found = true;
+          logger.debug(`[Danmaku] ✓ Deleted from hold queue`);
+          return;
+        }
+
+        // Check pending queue
+        const pendingIdx = pendingQueue.findIndex((m) => m.id === messageId);
+        if (pendingIdx !== -1) {
+          logger.debug(
+            `[Danmaku] ✓ Found in pending queue (index ${pendingIdx}/${pendingQueue.length})`
+          );
+          const msg = pendingQueue[pendingIdx];
+          pendingQueue.splice(pendingIdx, 1);
+          if (msg.el && msg.el.parentNode) {
+            msg.el.remove();
+          }
+          found = true;
+          logger.debug(`[Danmaku] ✓ Deleted from pending queue`);
+          return;
+        }
+
+        // Check active messages (via messageMap for efficiency)
+        const msg = messageMap.get(messageId);
+        if (msg) {
+          logger.debug(
+            `[Danmaku] ✓ Found in active messages (${activeMessages.length} total)`
+          );
+          unregisterMessage(msg, { removeDom: true });
+          found = true;
+          logger.debug(`[Danmaku] ✓ Deleted from active messages`);
+          return;
+        }
+
+        if (!found) {
+          logger.warn(
+            `[Danmaku] ⚠ Message not found in any queue: ${messageId}`
+          );
+          logger.debug(
+            `[Danmaku] Hold queue IDs:`,
+            holdQueue.map((m) => m.id)
+          );
+          logger.debug(
+            `[Danmaku] Pending queue IDs:`,
+            pendingQueue.map((m) => m.id)
+          );
+          logger.debug(
+            `[Danmaku] Active message IDs:`,
+            Array.from(messageMap.keys())
+          );
+        }
+      }
+
+      /**
+       * Deletes all messages from a user
+       * Searches all queues (hold, pending, active)
+       * @param {string} username - Username (case-insensitive)
+       */
+      function deleteUserMessages(username) {
+        const userKey = username.toLowerCase();
+        let deletedCount = 0;
+
+        // Delete from hold queue
+        for (let i = holdQueue.length - 1; i >= 0; i--) {
+          if (holdQueue[i].userKey === userKey) {
+            const msg = holdQueue[i];
+            holdQueue.splice(i, 1);
+            if (msg.el && msg.el.parentNode) {
+              msg.el.remove();
+            }
+            deletedCount++;
+          }
+        }
+
+        // Delete from pending queue
+        for (let i = pendingQueue.length - 1; i >= 0; i--) {
+          if (pendingQueue[i].userKey === userKey) {
+            const msg = pendingQueue[i];
+            pendingQueue.splice(i, 1);
+            if (msg.el && msg.el.parentNode) {
+              msg.el.remove();
+            }
+            deletedCount++;
+          }
+        }
+
+        // Delete from active messages (via userMessages lookup for efficiency)
+        const messageIds = userMessages.get(userKey);
+        if (messageIds) {
+          // Copy to array to avoid modification during iteration
+          const ids = Array.from(messageIds);
+          for (const id of ids) {
+            const msg = messageMap.get(id);
+            if (msg) {
+              unregisterMessage(msg, { removeDom: true });
+              deletedCount++;
+            }
+          }
+        }
+
+        if (deletedCount > 0) {
+          logger.debug(
+            `[Danmaku] Deleted ${deletedCount} messages from user: ${username}`
+          );
+        }
+      }
+
+      /**
+       * Clears all messages (chat clear)
+       */
+      function clearAllMessages() {
+        logger.debug('[Danmaku] Clearing all messages');
+
+        // Clear all queues
+        holdQueue.length = 0;
+        pendingQueue.length = 0;
+
+        // Remove all active messages
+        while (activeMessages.length > 0) {
+          const msg = activeMessages[0];
+          unregisterMessage(msg, { removeDom: true });
+        }
+
+        // Clear lookup structures
+        messageMap.clear();
+        userMessages.clear();
+      }
+
+      // ============================================================================
+      // NodeCG Message Listeners
+      // ============================================================================
+
+      // Listen for new messages from extension
+      nodecg.listenFor('danmaku:message', (data) => {
+        // Check if danmaku is enabled
+        if (!settings.danmaku?.enabled) {
+          logger.info('[Danmaku] Danmaku disabled, ignoring message');
+          return;
+        }
+
+        addMessage(data);
+      });
+
+      // Listen for message deletion
+      nodecg.listenFor('danmaku:delete', (data) => {
+        deleteMessage(data.messageId);
+      });
+
+      // Listen for user timeout (delete all user messages)
+      nodecg.listenFor('danmaku:deleteUser', (data) => {
+        deleteUserMessages(data.username);
+      });
+
+      // Listen for chat clear
+      nodecg.listenFor('danmaku:clearAll', () => {
+        clearAllMessages();
+      });
+
+      // ============================================================================
+      // Initialization
+      // ============================================================================
+
+      logger.info('[Danmaku] Graphics loaded');
+      logger.info(`[Danmaku] Viewport: ${W}×${H}`);
+      logger.info(
+        `[Danmaku] Usable height: ${(H * 0.9).toFixed(0)}px (5% clearance)`
+      );
+      logger.info(
+        `[Danmaku] Initial font size: ${BASE_FONT_SIZE.toFixed(1)}px`
+      );
+
+      // Apply initial density preset (auto mode starts at 'neat')
+      applyDensityPreset('neat');
+
+      logger.info(
+        `[Danmaku] Performance targets: ${MAX_ACTIVE} active, ${MAX_PENDING} pending`
+      );
+      logger.info(
+        `[Danmaku] Adaptive density enabled (auto-adjusts based on queue depth)`
+      );
+
+      // Start animation loop
+      requestAnimationFrame(tick);
+    </script>
+  </body>
+</html>

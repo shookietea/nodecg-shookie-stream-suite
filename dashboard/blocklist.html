@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blocklist Settings</title>
+  <link rel="stylesheet" href="shared-styles.css">
+</head>
+<body>
+  <div class="setting-item">
+    <label for="blocklist-usernames">Blocked Usernames:</label>
+    <textarea id="blocklist-usernames" rows="10" placeholder="nightbot&#10;streamelements&#10;moobot"></textarea>
+    <div class="info">These users will not appear in danmaku or credits</div>
+    <div class="info">One user per line</div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    // ============================================================================
+    // Element ID Constants
+    // ============================================================================
+
+    const ELEMENT_IDS = {
+      USERNAMES: 'blocklist-usernames'
+    };
+
+    const settingsRep = nodecg.Replicant('settings');
+
+    // Auto-save helper using DashboardUtils with 1s debounce for textarea
+    const autoSave = DashboardUtils.createAutoSave(settingsRep, 'blockList', 1000);
+
+    /**
+     * Gets current blocklist settings from DOM
+     * @returns {Object} Blocklist settings with usernames array
+     */
+    function getCurrentBlocklistSettings() {
+      const blocklistText = DashboardUtils.getElementValue(ELEMENT_IDS.USERNAMES);
+      const blocklistArray = blocklistText
+        .split('\n')
+        .map(line => line.trim().toLowerCase())
+        .filter(line => line.length > 0);
+
+      return {
+        usernames: blocklistArray
+      };
+    }
+
+    // Load settings using DashboardUtils
+    settingsRep.on('change', (newValue) => {
+      if (!newValue) return;
+      DashboardUtils.updateElement(ELEMENT_IDS.USERNAMES, (newValue.blockList?.usernames || []).join('\n'), '');
+    });
+
+    // Auto-save on input with custom processing for textarea
+    document.getElementById(ELEMENT_IDS.USERNAMES).addEventListener('input', () => {
+      autoSave(getCurrentBlocklistSettings);
+    });
+  </script>
+</body>
+</html>

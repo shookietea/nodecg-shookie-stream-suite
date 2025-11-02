@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Credits Overlay</title>
+  <style>
+    /* ========================================================================
+       BASE RESET
+       ======================================================================== */
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    /* ========================================================================
+       COLOR PALETTE
+       Alert colors used across all graphics
+       ======================================================================== */
+
+    :root {
+      /* Alert colors */
+      --color-alert-follow: 149, 128, 255;    /* Purple */
+      --color-alert-sub: 255, 128, 191;       /* Pink */
+      --color-alert-gift: 138, 255, 128;      /* Green */
+      --color-alert-cheer: 255, 255, 128;     /* Yellow */
+      --color-alert-raid: 255, 128, 128;      /* Red */
+
+      /* Background and frosted glass */
+      --color-bg-dark: 34, 33, 44;
+      --color-text-primary: 248, 248, 242;
+      --color-text-white: 255, 255, 255;
+      --color-text-shadow: 33, 44, 42;
+    }
+
+    /* ========================================================================
+       CREDITS CONTAINER
+       ======================================================================== */
+
+    #credits {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      pointer-events: none;
+      z-index: 9050;
+      overflow: hidden;
+      transition: opacity 240ms ease;
+      opacity: 0;
+    }
+
+    #credits.show {
+      opacity: 1;
+    }
+
+    #credits .wrap {
+      width: 80vw;
+      height: 80vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+
+      /* Frosted glass background */
+      background: linear-gradient(135deg,
+        rgba(var(--color-bg-dark), 0.75) 0%,
+        rgba(var(--color-bg-dark), 0.65) 50%,
+        rgba(var(--color-bg-dark), 0.75) 100%);
+      border-radius: 1.25vw;
+      padding: 1.5vw;
+      backdrop-filter: blur(12px) saturate(180%);
+      -webkit-backdrop-filter: blur(12px) saturate(180%);
+      border: 0.1vw solid rgba(var(--color-text-primary), 0.2);
+      box-shadow:
+        0 0.42vw 1.25vw rgba(0, 0, 0, 0.4),
+        inset 0 0.21vw 0.42vw rgba(var(--color-text-white), 0.1),
+        inset 0 -0.21vw 0.42vw rgba(0, 0, 0, 0.2);
+    }
+
+    /* Multi-color gradient overlay combining all alert colors */
+    #credits .wrap::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg,
+        rgba(var(--color-alert-follow), 0.15) 0%,      /* Purple (follow) */
+        rgba(var(--color-alert-sub), 0.12) 25%,        /* Pink (sub) */
+        rgba(var(--color-alert-gift), 0.12) 50%,       /* Green (gift) */
+        rgba(var(--color-alert-cheer), 0.12) 75%,      /* Yellow (cheer) */
+        rgba(var(--color-alert-follow), 0.15) 100%);   /* Purple (loop back) */
+      pointer-events: none;
+      border-radius: inherit;
+      z-index: 0;
+    }
+
+    /* Make content sit above the gradient overlay */
+    #credits .wrap > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    #credits .title {
+      font: bold 28px/1.2 system-ui, Segoe UI, Roboto, Arial;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    #credits .roll-viewport {
+      position: relative;
+      width: 100%;
+      height: calc(100% - 48px); /* Use percentage to account for wrap padding */
+      overflow: hidden;
+    }
+
+    #credits .hero-pin {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    #credits .hero-row {
+      width: 100%;
+      text-align: center;
+      margin: 4px 0;
+      font-weight: 800;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+
+    #credits .roll-window {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    #credits .roll-content {
+      position: absolute;
+      left: 0;
+      z-index: 0;
+      width: 100%;
+    }
+
+    #credits .cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    #credits .tag {
+      white-space: nowrap;
+      opacity: 0.95;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <div id="credits">
+    <div class="wrap">
+      <div class="title">Stream Credits</div>
+      <div class="roll-viewport" style="display: none">
+        <div class="roll-content"></div>
+      </div>
+      <div class="cloud" style="display: none"></div>
+    </div>
+  </div>
+
+  <script src="shared-logger.js"></script>
+  <script>
+    // DOM references (matching v36)
+    const CREDITS = document.getElementById('credits');
+    const C_TITLE = CREDITS.querySelector('.title');
+    const C_RVIEW = CREDITS.querySelector('.roll-viewport');
+    const C_RCONT = CREDITS.querySelector('.roll-content');
+    const C_CLOUD = CREDITS.querySelector('.cloud');
+
+    // Replicants
+    const settingsRep = nodecg.Replicant('settings');
+    const creditsStatsRep = nodecg.Replicant('creditsStats');
+    const testCreditsStatsRep = nodecg.Replicant('testCreditsStats');
+
+    // Logger - Using Shared Logger Utility
+    const logger = createLogger('Credits', settingsRep);
+
+    // ============================================================================
+    // Show/Hide Overlay Helpers (from v36)
+    // ============================================================================
+
+    function showOverlay(el) {
+      el.style.display = 'flex';
+      // next frame to allow transition
+      requestAnimationFrame(() => el.classList.add('show'));
+    }
+
+    function hideOverlay(el) {
+      el.classList.remove('show');
+      setTimeout(() => {
+        el.style.display = 'none';
+      }, 260);
+    }
+
+    // ============================================================================
+    // Token-Based Cancellation System (from TECHNICAL_SPEC.md)
+    // ============================================================================
+
+    let currentCreditsToken = null;
+    let creditsTimers = [];
+    let currentCreditsType = null; // Track 'real' or 'test'
+
+    /**
+     * Tokenized setTimeout for credits animation
+     * Allows cancellation of entire animation sequence
+     */
+    function cSetTimeout(cb, ms, token) {
+      const id = setTimeout(() => {
+        if (token === currentCreditsToken) cb();
+      }, ms);
+      creditsTimers.push(id);
+      return id;
+    }
+
+    function cancelCredits() {
+      currentCreditsToken = {}; // Invalidate old token
+      for (const id of creditsTimers) {
+        try { clearTimeout(id); } catch {}
+      }
+      creditsTimers.length = 0;
+
+      // Reset transforms
+      if (C_RCONT) {
+        C_RCONT.style.transition = 'none';
+        C_RCONT.style.transform = 'translateY(0)';
+      }
+      const HERO_PIN = C_RVIEW.querySelector('.hero-pin');
+      if (HERO_PIN) {
+        HERO_PIN.style.transition = 'none';
+        HERO_PIN.style.transform = 'translateY(0)';
+      }
+      const RWIN = C_RVIEW.querySelector('.roll-window');
+      if (RWIN) {
+        RWIN.style.top = '0';
+      }
+    }
+
+    // ============================================================================
+    // Weighted Scoring Algorithm (from TECHNICAL_SPEC.md)
+    // ============================================================================
+
+    function computeCreditsList(which = 'real') {
+      const settings = settingsRep.value?.credits || {};
+      const wChat = settings.chatWeight ?? 1.0;
+      const wSub = settings.subWeight ?? 2.0;
+      const wDon = settings.donoWeight ?? 3.0;
+
+      const srcStats = which === 'test' ? testCreditsStatsRep.value : creditsStatsRep.value;
+      if (!srcStats) return [];
+
+      const entries = new Map();
+
+      function add(map, weight, transform) {
+        if (!map) return;
+        Object.entries(map).forEach(([username, value]) => {
+          if (!entries.has(username)) entries.set(username, 0);
+          const addVal = transform ? transform(value) : value;
+          entries.set(username, entries.get(username) + addVal * weight);
+        });
+      }
+
+      add(srcStats.chatCounts, wChat, null);
+      add(srcStats.subMonths, wSub, null);
+      add(srcStats.donoUSD, wDon, (v) => Math.sqrt(Math.max(0, v)));
+
+      const arr = [];
+      entries.forEach((w, name) => {
+        if (w > 0) arr.push({ name, w });
+      });
+      arr.sort((a, b) => b.w - a.w);
+
+      return arr;
+    }
+
+    // ============================================================================
+    // Credits Helper Functions (Refactored for Maintainability)
+    // ============================================================================
+
+    /**
+     * Validates and normalizes credits settings with proper defaults
+     * Single source of truth for all settings validation
+     * @param {Object} settings - Raw settings object
+     * @returns {Object} Validated settings with guaranteed defaults
+     */
+    function validateCreditsSettings(settings) {
+      return {
+        enabled: settings?.enabled !== false,
+        chatWeight: Math.max(0, settings?.chatWeight ?? 1.0),
+        subWeight: Math.max(0, settings?.subWeight ?? 2.0),
+        donoWeight: Math.max(0, settings?.donoWeight ?? 3.0),
+        durationAuto: settings?.durationAuto !== false,
+        duration: Math.max(3, Math.min(120, settings?.duration ?? 20)),
+        durationBaseSec: Math.max(1, settings?.durationBaseSec ?? 12),
+        durationPerRowMs: Math.max(0, settings?.durationPerRowMs ?? 850),
+        durationPerNameMs: Math.max(0, settings?.durationPerNameMs ?? 80),
+        density: Math.max(0.6, Math.min(2.0, settings?.density ?? 1.0)),
+        showTitle: settings?.showTitle !== false,
+        title: settings?.title !== null && settings?.title !== undefined ? settings?.title : 'Stream Credits',
+        showUserCount: settings?.showUserCount !== false,
+        cloudGap: Math.max(0, settings?.cloudGap ?? 8),
+        heroSizeMult: Math.max(1, settings?.heroSizeMult ?? 1.6),
+        tune: settings?.tune || {}
+      };
+    }
+
+    /**
+     * Calculates font sizes for credits based on viewport and user count
+     * @param {number} userCount - Number of users in credits
+     * @param {number} density - Density multiplier (0.6-2.0)
+     * @returns {Object} Font sizes { maxF, minF, base }
+     */
+    function calculateCreditsFontSizes(userCount, density = 1.0) {
+      const W = Math.max(1, document.documentElement.clientWidth || 1920);
+      const base = Math.max(18, Math.round(22 * Math.sqrt(W / 1920)));
+
+      const dens = Math.max(0.6, Math.min(2.0, density));
+      const baseMax = Math.round(base * 2.1 * dens);
+      const baseMin = Math.round(base * 0.85 * dens);
+
+      // For small lists, scale up minF aggressively so names are readable
+      // For large lists, use smaller minF to fit more names
+      const tight = Math.min(1, userCount / 40);
+      const maxF = Math.round(baseMax * (1.18 - 0.1 * tight));
+
+      // Aggressive scaling: 10 users = 2.5x minF, 40+ users = 1.0x minF
+      const minFScale = 1.0 + (1.5 * (1 - tight));
+      const minF = Math.round(baseMin * minFScale);
+
+      return { maxF, minF, base };
+    }
+
+    /**
+     * Measures credits layout to determine rows and scroll distance
+     * @param {HTMLElement} container - Container element with credit tags
+     * @returns {Object} Measurement data { items, rows, finalTarget }
+     */
+    function measureCreditsLayout(container) {
+      const items = Array.from(container.children);
+      const rows = [];
+      let lastY = -1;
+
+      for (const it of items) {
+        const y = Math.max(0, it.offsetTop);
+        if (!rows.length || y !== lastY) {
+          rows.push(y);
+          lastY = y;
+        }
+      }
+
+      let maxBottom = 0;
+      for (const it of items) {
+        const b = Math.max(0, it.offsetTop + it.offsetHeight);
+        if (b > maxBottom) maxBottom = b;
+      }
+
+      const OUT_PAD = Math.max(8, Math.round(8 * 1.5));
+      const finalTarget = Math.max(2, maxBottom + OUT_PAD);
+
+      return { items, rows, finalTarget };
+    }
+
+    /**
+     * Builds hero row DOM elements
+     * @param {Array} heroes - Array of hero entries
+     * @param {number} maxF - Maximum font size
+     * @param {number} heroSizeMult - Hero size multiplier
+     * @param {number} heroMargin - Vertical margin for hero rows (px)
+     * @returns {Object} { fragment, fsInit }
+     */
+    function buildHeroRows(heroes, maxF, heroSizeMult, heroMargin = 4) {
+      const frag = document.createDocumentFragment();
+      const fsInit = [];
+
+      heroes.forEach((entry, i) => {
+        const fs = Math.round(maxF * Math.max(1, heroSizeMult) * (1 - 0.12 * i));
+        const row = document.createElement('div');
+        row.className = 'hero-row';
+        row.style.fontSize = fs + 'px';
+        row.style.width = '100%';
+        row.style.margin = `${heroMargin}px 0`; // Apply dynamic margin
+        row.textContent = entry.name;
+        row.dataset.w = String(entry.w || 1);
+        frag.appendChild(row);
+        fsInit.push(fs);
+      });
+
+      return { fragment: frag, fsInit };
+    }
+
+    /**
+     * Builds cloud tag DOM elements
+     * @param {Array} users - Array of user entries
+     * @param {number} minF - Minimum font size
+     * @param {number} maxF - Maximum font size
+     * @returns {DocumentFragment} Fragment containing cloud tags
+     */
+    function buildCloudTags(users, minF, maxF) {
+      const frag = document.createDocumentFragment();
+
+      if (!users.length) return frag;
+
+      const _minW = Math.min(...users.map(x => x.w));
+      const _maxW = Math.max(...users.map(x => x.w));
+      const spanW = Math.max(1, _maxW - _minW);
+
+      users.forEach((entry, i) => {
+        const t = users.length > 1 ? i / (users.length - 1) : 0;
+        const leadF = Math.pow(1 - t, 0.65);
+        const wNorm = spanW ? (entry.w - _minW) / spanW : 0;
+        const weightF = Math.pow(wNorm, 0.85);
+        const nFac = Math.max(0, Math.min(1, 0.72 * leadF + 0.28 * weightF));
+        const fs = Math.round(minF + (maxF - minF) * nFac);
+
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.style.display = 'inline-block';
+        tag.style.verticalAlign = 'baseline';
+        tag.style.fontSize = fs + 'px';
+        tag.textContent = entry.name;
+        tag.dataset.w = String(entry.w || 1);
+        frag.appendChild(tag);
+      });
+
+      return frag;
+    }
+
+    /**
+     * Calculates timing parameters for credits animation
+     * @param {Object} config - Configuration object
+     * @returns {Object} Timing data { initialDwell, transMs, dwellMs, heroExitMs, useSmooth }
+     */
+    function calculateCreditsTiming(config) {
+      const { durMs, rows, items, list, HERO, TUNE, finalTarget, heroH } = config;
+
+      const targets = rows.length <= 1 ? [finalTarget] : [...rows.slice(1), finalTarget];
+      const steps = targets.length;
+      const between = Math.max(0, steps - 1);
+      const dist = targets.map((t, i) => Math.max(1, t - (i === 0 ? 0 : targets[i - 1])));
+
+      const smallList = list.length <= TUNE.smallListCount;
+
+      // Initial dwell (size-dependent)
+      const initialDwellFrac = rows.length >= TUNE.rowBreakLarge ? TUNE.initialDwellFracLarge :
+                               rows.length >= TUNE.rowBreakMed ? TUNE.initialDwellFracMed :
+                               TUNE.initialDwellFracSmall;
+      let initialDwell = Math.min(3500, Math.round(durMs * initialDwellFrac));
+
+      // Hero extra dwell (clamped between 0 and 0.5)
+      const heroExtraFrac = Math.max(0, Math.min(0.5, TUNE.heroExtraDwellFrac || 0));
+      const heroExtraTotal = HERO.count > 0 ? Math.round(durMs * heroExtraFrac) : 0;
+      const heroExitMs = HERO.count > 0 ? Math.max(200, Math.min(4000, Math.round(TUNE.heroExitMs ?? (TUNE.tailMaxMs || 1200) * 1.0))) : 0;
+
+      let heroAlloc = new Array(HERO.count).fill(0);
+      if (heroExtraTotal > 0 && HERO.count > 0) {
+        const sumW = HERO.weights.reduce((a, b) => a + Math.max(0.0001, b), 0);
+        for (let i = 0; i < HERO.count; i++) {
+          heroAlloc[i] = Math.round((Math.max(0.0001, HERO.weights[i]) / sumW) * heroExtraTotal);
+        }
+        const diff = heroExtraTotal - heroAlloc.reduce((x, y) => x + y, 0);
+        if (diff !== 0 && heroAlloc.length) heroAlloc[0] += diff;
+      }
+
+      initialDwell += heroAlloc[0] || 0;
+
+      // Transition budget
+      const tf = list.length < TUNE.countBreakSmall ? TUNE.transFracSmall :
+                 list.length < TUNE.countBreakMed ? TUNE.transFracMed :
+                 list.length < TUNE.countBreakLarge ? TUNE.transFracLarge :
+                 TUNE.transFracXL;
+
+      const avail = Math.max(1000, durMs - initialDwell);
+      let transBudget = avail * tf;
+      let dwellBudget = avail - transBudget;
+
+      const extraBetweenSum = heroAlloc.slice(1).reduce((x, y) => x + y, 0);
+      dwellBudget = Math.max(0, dwellBudget - extraBetweenSum);
+
+      // Speed ramping: Exponential acceleration (heroes slow, tail fast)
+      const sRel = new Array(steps).fill(0).map((_, i) => {
+        const progress = i / Math.max(1, steps - 1);  // 0.0 to 1.0
+        const exponent = TUNE.rampExponent || 2.5;
+        return 1 + (TUNE.rampMax - 1) * Math.pow(progress, exponent);
+      });
+      const distOverRel = dist.reduce((a, d, i) => a + d / sRel[i], 0);
+      let baseSpeed = Math.max(1, distOverRel / (transBudget / 1000));
+      let transMs = dist.map((d, i) => Math.max(60, Math.round((1000 * d) / (baseSpeed * sRel[i]))));
+
+      // Dwell distribution (frontloaded)
+      const dwellMs = new Array(between).fill(0);
+
+      const MIN_STEP_MS = (TUNE.smoothSnapMinStepMs ?? 180) | 0;
+      const anyTooFast = transMs.length ? Math.min(...transMs) < MIN_STEP_MS : false;
+      const useSmooth = anyTooFast;
+
+      if (between > 0) {
+        const rowMax = (rowIdx) => {
+          const y = rows[rowIdx];
+          let m = 0.0001;
+          for (const it of items) {
+            if (it.offsetTop === y) {
+              const w = parseFloat(it.dataset.w || '1') || 1;
+              if (w > m) m = w;
+            }
+          }
+          return m;
+        };
+
+        const weights = [];
+        for (let i = 1; i <= between; i++) {
+          const wRow = rowMax(Math.min(i, rows.length - 1));
+          const adj = Math.pow(wRow, TUNE.frontloadAlpha) * Math.pow(TUNE.frontloadDecay, i - 1);
+          weights.push(Math.max(0.0001, adj));
+        }
+        let sumW = weights.reduce((x, y) => x + y, 0);
+        if (sumW <= 0) sumW = 1;
+
+        for (let i = 0; i < between; i++) {
+          dwellMs[i] = Math.max(0, Math.round(dwellBudget * (weights[i] / sumW)));
+        }
+
+        if (smallList) {
+          const extra = Math.min(1600, Math.round(durMs * TUNE.extraLastRowPauseFrac));
+          dwellMs[between - 1] += extra;
+        }
+
+        for (let i = 1; i < HERO.count; i++) {
+          const idx = i - 1;
+          if (idx >= 0 && idx < dwellMs.length) {
+            dwellMs[idx] += heroAlloc[i] || 0;
+          }
+        }
+      }
+
+      if (smallList && steps >= 1) {
+        const idx = steps - 1;
+        transMs[idx] = Math.max(TUNE.tailMinMs, Math.min(TUNE.tailMaxMs, transMs[idx]));
+      }
+
+      // Balance timing
+      const sum = (a) => a.reduce((x, y) => x + y, 0);
+      let totalNow = initialDwell + sum(transMs) + sum(dwellMs);
+      let delta = durMs - totalNow;
+      if (Math.abs(delta) > 1) {
+        if (delta > 0) {
+          // Add extra time to early dwell times (maintain hero/early readability)
+          let i = 0;
+          while (delta > 0 && i < dwellMs.length) {
+            const add = Math.min(delta, 999999);
+            dwellMs[i] += add;
+            delta -= add;
+            i++;
+          }
+          if (delta > 0) initialDwell += delta;
+        } else {
+          // TAIL-ONLY COMPRESSION: Only compress bottom 40% of rows
+          let need = -delta;
+          const tailStartIndex = Math.floor(dwellMs.length * 0.6); // Start at 60% position
+          const minDwellMs = 60; // Minimum 60ms per row to prevent instant flashing
+
+          // First pass: compress tail dwell times
+          for (let i = tailStartIndex; i < dwellMs.length && need > 0; i++) {
+            const available = Math.max(0, dwellMs[i] - minDwellMs);
+            const take = Math.min(available, need);
+            dwellMs[i] -= take;
+            need -= take;
+          }
+
+          // Second pass: compress tail transition times if still needed
+          if (need > 0) {
+            const minTransMs = 60; // Minimum 60ms transition
+            for (let i = tailStartIndex; i < transMs.length && need > 0; i++) {
+              const available = Math.max(0, transMs[i] - minTransMs);
+              const take = Math.min(available, need);
+              transMs[i] -= take;
+              need -= take;
+            }
+          }
+
+          // Last resort: compress initial dwell (only if tail compression insufficient)
+          if (need > 0) initialDwell = Math.max(0, initialDwell - need);
+
+          logger.info(`[Credits] Tail compression applied: ${(-delta).toFixed(0)}ms removed from bottom 40%`);
+        }
+      }
+
+      return {
+        initialDwell,
+        transMs,
+        dwellMs,
+        heroExitMs,
+        useSmooth,
+        targets,
+        steps
+      };
+    }
+
+    // ============================================================================
+    // Credits Display with Full Scrolling Animation
+    // ============================================================================
+
+    function showCredits(which = 'real') {
+      logger.debug('[Credits] Showing credits:', which);
+
+      // Cancel any existing animation
+      cancelCredits();
+      currentCreditsToken = {};
+      const __ctoken = currentCreditsToken;
+      currentCreditsType = which; // Track which type of credits
+
+      // Validate settings (single source of truth)
+      const settings = validateCreditsSettings(settingsRep.value?.credits);
+
+      if (!settings.enabled) {
+        logger.info('[Credits] Credits disabled');
+        return;
+      }
+
+      const list = computeCreditsList(which);
+      if (!list.length) {
+        logger.info('[Credits] No contributors');
+        return;
+      }
+
+      // Calculate font sizes using helper
+      const { maxF, minF } = calculateCreditsFontSizes(list.length, settings.density);
+
+      // Set title (conditionally display based on showTitle setting)
+      if (settings.showTitle) {
+        C_TITLE.textContent = settings.showUserCount ? `${settings.title} (${list.length})` : settings.title;
+        C_TITLE.style.display = 'block';
+      } else {
+        C_TITLE.style.display = 'none';
+      }
+
+      // Hide cloud mode, prepare roll viewport (matching v36 exactly)
+      C_CLOUD.style.display = 'none';
+      C_RVIEW.style.display = 'none';
+      showOverlay(CREDITS);
+
+      C_CLOUD.style.display = 'none';
+      C_RVIEW.style.display = 'block';
+
+      // Setup C_RCONT with explicit styles (matching v36)
+      C_RCONT.innerHTML = '';
+      C_RCONT.classList.add('cloud');
+      C_RCONT.style.display = 'flex';
+      C_RCONT.style.flexWrap = 'wrap';
+      C_RCONT.style.justifyContent = 'center';
+      C_RCONT.style.alignItems = 'flex-start';
+      C_RCONT.style.textAlign = 'center';
+      C_RCONT.style.top = '0';
+
+      // Create hero pin
+      let HERO_PIN = C_RVIEW.querySelector('.hero-pin');
+      if (!HERO_PIN) {
+        HERO_PIN = document.createElement('div');
+        HERO_PIN.className = 'hero-pin';
+        C_RVIEW.prepend(HERO_PIN);
+      }
+      HERO_PIN.innerHTML = '';
+      HERO_PIN.style.transition = 'none';
+      HERO_PIN.style.transform = 'translateY(0)';
+
+      // Create roll window
+      let RWIN = C_RVIEW.querySelector('.roll-window');
+      if (!RWIN) {
+        RWIN = document.createElement('div');
+        RWIN.className = 'roll-window';
+        C_RVIEW.appendChild(RWIN);
+      }
+      if (C_RCONT.parentNode !== RWIN) {
+        RWIN.appendChild(C_RCONT);
+      }
+
+      // Hero count: min(4, max(0, round(log2(userCount + 1))))
+      const heroCount = Math.min(4, Math.max(0, Math.round(Math.log2(list.length + 1))));
+      const heroes = list.slice(0, heroCount);
+      const rest = list.slice(heroCount);
+
+      // Dynamic hero margin: small lists get larger spacing
+      let heroMargin = 4; // Base margin
+      if (list.length < 20) {
+        const marginScale = 1.0 + (2.5 * (1 - list.length / 20)); // 1x at 20 users, 3.5x at 1 user
+        heroMargin = Math.round(4 * marginScale);
+      }
+
+      // Dynamic gap scaling: small lists get larger gaps to spread out
+      const baseGap = settings.cloudGap;
+      const cloudUserCount = rest.length;
+      let gap = baseGap;
+
+      // For small lists (<20 cloud users), scale up the gap
+      if (cloudUserCount < 20 && cloudUserCount > 0) {
+        const gapScale = 1.0 + (2.0 * (1 - cloudUserCount / 20)); // 1x at 20 users, 3x at 1 user
+        gap = Math.round(baseGap * gapScale);
+      }
+
+      C_RCONT.style.gap = String(gap) + 'px';
+
+      // Build hero rows using helper
+      const { fragment: heroFragment, fsInit } = buildHeroRows(heroes, maxF, settings.heroSizeMult, heroMargin);
+      HERO_PIN.appendChild(heroFragment);
+
+      const HERO = {
+        count: heroes.length,
+        weights: heroes.map(e => e.w),
+        fsInit: fsInit
+      };
+
+      // Position roll window below heroes
+      const heroH = HERO_PIN.getBoundingClientRect().height | 0;
+      RWIN.style.top = heroH + 'px';
+
+      // Build cloud tags using helper
+      const cloudFragment = buildCloudTags(rest, minF, maxF);
+      C_RCONT.appendChild(cloudFragment);
+      void C_RCONT.offsetHeight;  // Force reflow before measurement
+
+      // Measure layout using helper
+      const { items, rows, finalTarget } = measureCreditsLayout(C_RCONT);
+
+      // Calculate duration (validated settings already have defaults)
+      let durMs = Math.max(3000, settings.duration * 1000);
+
+      if (settings.durationAuto) {
+        const base = Math.max(4000, Math.round(settings.durationBaseSec * 1000));
+        const perRow = Math.max(0, Math.round(settings.durationPerRowMs));
+        const perName = Math.max(0, Math.round(settings.durationPerNameMs));
+        durMs = base + rows.length * perRow + list.length * perName;
+        durMs = Math.min(Math.max(3000, durMs), 120000);
+      }
+
+      logger.debug('[Credits] Animation starting:', {
+        durMs,
+        rows: rows.length,
+        users: list.length,
+        heroes: HERO.count,
+        finalScrollTarget: finalTarget
+      });
+
+      // Run the animation
+      runCreditsAnimation(__ctoken, {
+        items, rows, finalTarget, durMs, list, HERO, HERO_PIN, heroH, settings
+      });
+    }
+
+    function runCreditsAnimation(__ctoken, config) {
+      const { items, rows, finalTarget, durMs, list, HERO, HERO_PIN, heroH, settings } = config;
+
+      const now = () => performance && performance.now ? performance.now() : Date.now();
+      const runStart = now();
+      const runDeadline = runStart + durMs;
+
+      // Timing parameters (from v36 reference, merged with user settings)
+      const TUNE = Object.assign({
+        initialDwellFracSmall: 0.22,
+        initialDwellFracMed: 0.16,
+        initialDwellFracLarge: 0.12,
+        rowBreakMed: 6,
+        rowBreakLarge: 12,
+        transFracSmall: 0.55,
+        transFracMed: 0.65,
+        transFracLarge: 0.74,
+        transFracXL: 0.8,
+        countBreakSmall: 10,
+        countBreakMed: 20,
+        countBreakLarge: 40,
+        smallListCount: 8,
+        extraLastRowPauseFrac: 0.22,
+        tailMinMs: 450,
+        tailMaxMs: 1200,
+        rampMax: 10.0,
+        rampExponent: 2.5,
+        frontloadAlpha: 1.6,
+        frontloadDecay: 0.65,
+        heroExtraDwellFrac: 0.25,
+        smoothSnapMinStepMs: 180,
+        smoothEase: 'linear',
+        smoothGuardExtraMs: 120
+        // heroExitMs can be set to override the default calculation
+      }, settings.tune);
+
+      // Calculate all timing using helper function
+      const timing = calculateCreditsTiming({ durMs, rows, items, list, HERO, TUNE, finalTarget, heroH });
+      const { initialDwell, transMs, dwellMs, heroExitMs, useSmooth, targets, steps } = timing;
+
+      logger.debug('[Credits] Timing:', {
+        duration: durMs + 'ms',
+        users: list.length,
+        rows: rows.length,
+        heroes: HERO.count,
+        steps: steps,
+        mode: useSmooth ? 'smooth' : 'snap'
+      });
+
+      // Reset position
+      C_RCONT.style.transition = 'none';
+      C_RCONT.style.transform = 'translateY(0)';
+
+      // Finalization functions
+      function finalizeCredits() {
+        if (__ctoken !== currentCreditsToken) return;
+
+        // Animation completed naturally - just fade out (don't cancel)
+        const creditsType = currentCreditsType;
+        currentCreditsType = null;
+
+        // Hide with smooth fade (no cancel needed - animation is done)
+        hideOverlay(CREDITS);
+
+        // Notify dashboard
+        if (creditsType) {
+          nodecg.sendMessage('credits:hidden', { which: creditsType });
+        }
+      }
+
+      function exitHeroesThenFinish() {
+        if (!HERO || !HERO.count) {
+          finalizeCredits();
+          return;
+        }
+
+        const ms = heroExitMs;
+        const token = __ctoken;
+
+        HERO_PIN.style.transition = `transform ${ms}ms ease-in`;
+        void HERO_PIN.offsetWidth;
+        HERO_PIN.style.transform = `translateY(-${heroH + 20}px)`;
+
+        const onDone = (ev) => {
+          if (token !== currentCreditsToken || ev.propertyName !== 'transform') return;
+          HERO_PIN.removeEventListener('transitionend', onDone);
+          finalizeCredits();
+        };
+        HERO_PIN.addEventListener('transitionend', onDone, { once: true });
+        cSetTimeout(() => finalizeCredits(), ms + 150, token);
+      }
+
+      // Scrolling execution
+      if (useSmooth) {
+        // Smooth continuous scroll
+        logger.debug('[Credits] Using smooth scroll mode');
+
+        cSetTimeout(() => {
+          if (__ctoken !== currentCreditsToken) return;
+
+          // Calculate remaining time AFTER initial dwell (critical for correct timing)
+          const remainTotal = Math.max(800, Math.round(runDeadline - now()));
+          const glideMs = Math.max(400, remainTotal - heroExitMs);
+
+
+          C_RCONT.style.transition = `transform ${glideMs}ms ${TUNE.smoothEase || 'linear'}`;
+          void C_RCONT.offsetWidth;
+          C_RCONT.style.transform = `translateY(${-Math.round(finalTarget)}px)`;
+
+          const token = __ctoken;
+          const onEnd = (ev) => {
+            if (token !== currentCreditsToken || ev.propertyName !== 'transform') return;
+            C_RCONT.removeEventListener('transitionend', onEnd);
+            exitHeroesThenFinish();
+          };
+          C_RCONT.addEventListener('transitionend', onEnd, { once: true });
+
+          // Guard: if transitionend is missed, still exit heroes after glide time
+          cSetTimeout(
+            () => exitHeroesThenFinish(),
+            glideMs + (TUNE.smoothGuardExtraMs ?? 120),
+            __ctoken
+          );
+        }, Math.max(0, initialDwell), __ctoken);
+
+      } else {
+        // Row-by-row snapping
+        logger.debug('[Credits] Using row-by-row snap mode');
+        let iStep = 0;
+
+        function runStep() {
+          if (iStep >= steps) {
+            exitHeroesThenFinish();
+            return;
+          }
+
+          const isTail = iStep === steps - 1;
+          const targetY = isTail ? finalTarget : targets[iStep];
+          let thisMs = transMs[iStep];
+
+          if (isTail) {
+            const remain = Math.max(0, Math.round(runDeadline - now()));
+            thisMs = Math.max(60, remain - heroExitMs);
+          }
+
+          C_RCONT.style.transition = `transform ${thisMs}ms ease-out`;
+          void C_RCONT.offsetWidth;
+          C_RCONT.style.transform = `translateY(-${Math.round(targetY)}px)`;
+
+          if (isTail) {
+            const token = __ctoken;
+            const onEnd = (ev) => {
+              if (token !== currentCreditsToken || ev.propertyName !== 'transform') return;
+              C_RCONT.removeEventListener('transitionend', onEnd);
+              exitHeroesThenFinish();
+            };
+            C_RCONT.addEventListener('transitionend', onEnd, { once: true });
+
+            const guardMs = Math.max(0, Math.round(runDeadline - now() + 120));
+            cSetTimeout(() => exitHeroesThenFinish(), guardMs, __ctoken);
+          } else {
+            cSetTimeout(() => {
+              const dwell = dwellMs[iStep] || 0;
+              cSetTimeout(() => {
+                iStep++;
+                runStep();
+              }, dwell, __ctoken);
+            }, transMs[iStep], __ctoken);
+          }
+        }
+
+        cSetTimeout(() => {
+          if (__ctoken !== currentCreditsToken) return;
+          runStep();
+        }, initialDwell, __ctoken);
+      }
+    }
+
+    function hideCredits() {
+      logger.debug('[Credits] Hiding credits');
+      const creditsType = currentCreditsType;
+      cancelCredits();
+      hideOverlay(CREDITS);
+
+      // Notify dashboard that credits have been completely hidden
+      if (creditsType) {
+        nodecg.sendMessage('credits:hidden', { which: creditsType });
+        currentCreditsType = null;
+      }
+    }
+
+    // ============================================================================
+    // NodeCG Message Listeners
+    // ============================================================================
+
+    nodecg.listenFor('credits:show', (data) => {
+      const which = data?.which || 'real';
+      showCredits(which);
+    });
+
+    nodecg.listenFor('credits:hide', () => {
+      hideCredits();
+    });
+
+    logger.info('[Credits] Graphics loaded');
+  </script>
+</body>
+</html>

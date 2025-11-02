@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Streamer.Bot Connection</title>
+  <link rel="stylesheet" href="shared-styles.css">
+  <style>
+    /* Connection panel specific overrides */
+    .button-group button {
+      flex: 1;
+    }
+
+    button.disconnect {
+      background: #f44336;
+    }
+
+    button.disconnect:hover {
+      background: #d32f2f;
+    }
+
+    button.disconnect:disabled {
+      background: #1a1a1a;
+    }
+  </style>
+</head>
+<body>
+  <div id="status-indicator" class="status-indicator disconnected">
+    <div id="status-dot" class="status-dot disconnected"></div>
+    <div class="status-text">
+      <strong id="status-title">Disconnected</strong>
+      <small id="status-message">Not connected to Streamer.bot</small>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="setting-item">
+      <label for="sb-host">Host:</label>
+      <input type="text" id="sb-host" placeholder="127.0.0.1">
+    </div>
+    <div class="setting-item">
+      <label for="sb-port">Port:</label>
+      <input type="number" id="sb-port" placeholder="8080">
+    </div>
+  </div>
+
+  <div class="button-group">
+    <button id="connect-btn">Connect</button>
+    <button id="disconnect-btn" class="disconnect" disabled>Disconnect</button>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    const settingsRep = nodecg.Replicant('settings');
+    const connectionStatusRep = nodecg.Replicant('connectionStatus');
+
+    // Auto-save helper using DashboardUtils
+    const autoSave = DashboardUtils.createAutoSave(settingsRep, 'streamerBot');
+
+    // Update status display
+    function updateStatusDisplay(status) {
+      const indicator = document.getElementById('status-indicator');
+      const dot = document.getElementById('status-dot');
+      const title = document.getElementById('status-title');
+      const message = document.getElementById('status-message');
+      const connectBtn = document.getElementById('connect-btn');
+      const disconnectBtn = document.getElementById('disconnect-btn');
+
+      if (!status) return;
+
+      if (status.connected) {
+        indicator.className = 'status-indicator connected';
+        dot.className = 'status-dot connected';
+        title.textContent = 'Connected';
+        message.textContent = 'Connected to Streamer.bot';
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+      } else {
+        indicator.className = 'status-indicator disconnected';
+        dot.className = 'status-dot disconnected';
+        title.textContent = 'Disconnected';
+        message.textContent = status.error || 'Not connected to Streamer.bot';
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+      }
+    }
+
+    // Load settings using DashboardUtils
+    settingsRep.on('change', (newValue) => {
+      if (!newValue) return;
+      DashboardUtils.updateElement('sb-host', newValue.streamerBot?.host, '127.0.0.1');
+      DashboardUtils.updateElement('sb-port', newValue.streamerBot?.port, 8080);
+    });
+
+    // Monitor connection status
+    connectionStatusRep.on('change', updateStatusDisplay);
+
+    // Auto-save on input using DashboardUtils
+    DashboardUtils.addListeners(['sb-host', 'sb-port'], 'input', () => {
+      autoSave(() => ({
+        host: DashboardUtils.getElementValue('sb-host'),
+        port: DashboardUtils.getElementValue('sb-port')
+      }));
+    });
+
+    // Connect/Disconnect buttons
+    document.getElementById('connect-btn').addEventListener('click', () => {
+      nodecg.sendMessage('streamerbot:connect');
+    });
+
+    document.getElementById('disconnect-btn').addEventListener('click', () => {
+      nodecg.sendMessage('streamerbot:disconnect');
+    });
+  </script>
+</body>
+</html>

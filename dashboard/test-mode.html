@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Mode</title>
+  <link rel="stylesheet" href="shared-styles.css">
+  <style>
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .test-card {
+      background: #2c2c2c;
+      border: 1px solid #3d3d3d;
+      border-radius: 4px;
+      padding: 12px;
+    }
+
+    .test-card-header {
+      font-size: 11px;
+      color: #4fc3f7;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-bottom: 10px;
+      font-weight: 600;
+      border-bottom: 1px solid #3d3d3d;
+      padding-bottom: 6px;
+    }
+
+    .test-card-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .master-toggle {
+      background: #3a3a3a;
+      border: 2px solid #4fc3f7;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+
+    .master-toggle label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #4fc3f7;
+    }
+
+    .test-card.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Master Testing Mode Toggle -->
+  <div class="master-toggle">
+    <label class="inline">
+      <input type="checkbox" id="test-master-enabled">
+      <span>Enable Testing Mode</span>
+    </label>
+    <div class="info">Master switch for all test generation features and debug logging</div>
+  </div>
+
+  <!-- Test Grid -->
+  <div class="test-grid" id="test-grid">
+    <!-- Danmaku Card -->
+    <div class="test-card" id="danmaku-card">
+      <div class="test-card-header">Chat Messages</div>
+      <div class="test-card-controls">
+        <label class="inline">
+          <input type="checkbox" id="test-auto-messages">
+          <span>Auto-Generate</span>
+        </label>
+        <div class="setting-item">
+          <label>
+            Rate: <span class="slider-value" id="test-messages-per-minute-value">60</span> msg/min
+          </label>
+          <input type="range" id="test-messages-per-minute" min="1" max="300" step="5" value="60" disabled>
+        </div>
+        <button id="test-send-message" class="full-width">Send Test Message</button>
+      </div>
+    </div>
+
+    <!-- Subscriptions Card -->
+    <div class="test-card" id="subs-card">
+      <div class="test-card-header">Subscriptions</div>
+      <div class="test-card-controls">
+        <label class="inline">
+          <input type="checkbox" id="test-auto-subs">
+          <span>Auto-Generate</span>
+        </label>
+        <button id="test-send-sub" class="full-width">Test Sub</button>
+        <button id="test-send-resub" class="full-width">Test Resub</button>
+        <button id="test-send-giftsub" class="full-width">Test Gift Sub</button>
+      </div>
+    </div>
+
+    <!-- Follows Card -->
+    <div class="test-card" id="follows-card">
+      <div class="test-card-header">Follows</div>
+      <div class="test-card-controls">
+        <label class="inline">
+          <input type="checkbox" id="test-auto-follows">
+          <span>Auto-Generate</span>
+        </label>
+        <button id="test-send-follow" class="full-width">Test Follow</button>
+      </div>
+    </div>
+
+    <!-- Cheers Card -->
+    <div class="test-card" id="cheers-card">
+      <div class="test-card-header">Cheers</div>
+      <div class="test-card-controls">
+        <label class="inline">
+          <input type="checkbox" id="test-auto-cheers">
+          <span>Auto-Generate</span>
+        </label>
+        <button id="test-send-cheer" class="full-width">Test Cheer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert Interval -->
+  <div class="section mt-2">
+    <div class="section-content">
+      <div class="setting-item">
+        <label>
+          Alert Interval: <span class="slider-value" id="test-alert-interval-value">6</span>s
+        </label>
+        <input type="range" id="test-alert-interval" min="2" max="60" step="1" value="6" disabled>
+        <div class="info">Seconds between auto-generated alerts (applies to Subs, Follows, Cheers)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear All -->
+  <div class="section">
+    <div class="section-content">
+      <button id="test-clear-all" class="danger full-width">Clear All Messages</button>
+    </div>
+  </div>
+
+  <!-- Test Credits Statistics -->
+  <div class="section collapsible" data-collapsible id="test-credits-stats">
+    <h3 class="section-header">
+      <span class="section-title">Test Credits</span>
+      <span class="section-toggle">▼</span>
+    </h3>
+    <div class="section-content">
+      <div class="button-group mb-2">
+        <button id="show-test-credits-btn" class="primary">Show Test Credits</button>
+        <button id="hide-test-credits-btn" class="danger">Hide Credits</button>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box" data-stat-toggle="test-users">
+          <div class="stat-label">Users</div>
+          <div class="stat-value" id="test-total-users">0</div>
+        </div>
+        <div class="stat-box" data-stat-toggle="test-messages">
+          <div class="stat-label">Messages</div>
+          <div class="stat-value" id="test-total-messages">0</div>
+        </div>
+        <div class="stat-box" data-stat-toggle="test-donations">
+          <div class="stat-label">Donations</div>
+          <div class="stat-value" id="test-total-donations">$0</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-label">Estimated Duration</div>
+          <div class="stat-value" id="test-estimated-duration">0s</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-label">Countdown Timer</div>
+          <div class="stat-value" id="credits-countdown">—</div>
+          <div style="font-size: 10px; color: #666; margin-top: 2px;" id="countdown-status">Waiting...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Management -->
+  <div class="section collapsible collapsed" data-collapsible id="test-data-mgmt">
+    <h3 class="section-header">
+      <span class="section-title">Data Management</span>
+      <span class="section-toggle">▶</span>
+    </h3>
+    <div class="section-content">
+      <div class="button-group">
+        <button id="export-test-btn" class="success">Export JSON</button>
+        <button id="import-test-btn">Import JSON</button>
+        <button id="reset-test-btn" class="danger">Reset All</button>
+      </div>
+      <input type="file" id="import-test-file" accept=".json" style="display: none;">
+      <div class="message" id="test-message"></div>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    // ============================================================================
+    // Element ID Constants
+    // ============================================================================
+
+    /**
+     * Element ID constants for type safety and preventing typos
+     * @const
+     */
+    const ELEMENT_IDS = {
+      // Master control
+      MASTER_ENABLED: 'test-master-enabled',
+
+      // Danmaku controls
+      SEND_MESSAGE: 'test-send-message',
+      AUTO_MESSAGES: 'test-auto-messages',
+      MESSAGES_PER_MINUTE: 'test-messages-per-minute',
+      MESSAGES_PER_MINUTE_VALUE: 'test-messages-per-minute-value',
+
+      // Subscription controls
+      SEND_SUB: 'test-send-sub',
+      SEND_RESUB: 'test-send-resub',
+      SEND_GIFTSUB: 'test-send-giftsub',
+      AUTO_SUBS: 'test-auto-subs',
+
+      // Follow controls
+      SEND_FOLLOW: 'test-send-follow',
+      AUTO_FOLLOWS: 'test-auto-follows',
+
+      // Cheer controls
+      SEND_CHEER: 'test-send-cheer',
+      AUTO_CHEERS: 'test-auto-cheers',
+
+      // Alert interval
+      ALERT_INTERVAL: 'test-alert-interval',
+      ALERT_INTERVAL_VALUE: 'test-alert-interval-value',
+
+      // Other controls
+      CLEAR_ALL: 'test-clear-all',
+
+      // Credits stats
+      TEST_TOTAL_USERS: 'test-total-users',
+      TEST_TOTAL_MESSAGES: 'test-total-messages',
+      TEST_TOTAL_DONATIONS: 'test-total-donations',
+      TEST_ESTIMATED_DURATION: 'test-estimated-duration',
+      CREDITS_COUNTDOWN: 'credits-countdown',
+      COUNTDOWN_STATUS: 'countdown-status',
+
+      // Buttons
+      SHOW_TEST_CREDITS_BTN: 'show-test-credits-btn',
+      HIDE_TEST_CREDITS_BTN: 'hide-test-credits-btn',
+      EXPORT_TEST_BTN: 'export-test-btn',
+      IMPORT_TEST_BTN: 'import-test-btn',
+      RESET_TEST_BTN: 'reset-test-btn',
+      IMPORT_TEST_FILE: 'import-test-file',
+      TEST_MESSAGE: 'test-message'
+    };
+
+    const settingsRep = nodecg.Replicant('settings');
+    const testCreditsStatsRep = nodecg.Replicant('testCreditsStats');
+
+    // Initialize collapsible sections and stat toggles
+    DashboardUtils.initCollapsibleSections();
+    DashboardUtils.initStatBoxToggles();
+
+    // Auto-save helpers using DashboardUtils
+    const autoSave = DashboardUtils.createAutoSave(settingsRep, 'testMode');
+    const immediateSave = DashboardUtils.createImmediateSave(settingsRep, 'testMode');
+
+    // Update slider value displays using DashboardUtils
+    DashboardUtils.createSliderUpdater(ELEMENT_IDS.MESSAGES_PER_MINUTE, ELEMENT_IDS.MESSAGES_PER_MINUTE_VALUE, (v) => Math.round(v).toString());
+    DashboardUtils.createSliderUpdater(ELEMENT_IDS.ALERT_INTERVAL, ELEMENT_IDS.ALERT_INTERVAL_VALUE, (v) => v.toString());
+
+    // ============================================================================
+    // Type Definitions
+    // ============================================================================
+
+    /**
+     * @typedef {Object} FeatureStates
+     * @property {boolean} master - Master test mode enabled
+     * @property {boolean} danmaku - Danmaku globally enabled
+     * @property {boolean} alerts - Alerts globally enabled
+     * @property {boolean} subs - Subscription alerts enabled
+     * @property {boolean} follows - Follow alerts enabled
+     * @property {boolean} cheers - Cheer alerts enabled
+     */
+
+    /**
+     * @typedef {Object} TestModeSettings
+     * @property {boolean} masterEnabled - Master test mode toggle
+     * @property {boolean} autoGenMessages - Auto-generate chat messages
+     * @property {number} messagesPerMinute - Messages per minute rate
+     * @property {boolean} autoGenSubs - Auto-generate subscription alerts
+     * @property {boolean} autoGenFollows - Auto-generate follow alerts
+     * @property {boolean} autoGenCheers - Auto-generate cheer alerts
+     * @property {number} alertInterval - Seconds between alerts
+     */
+
+    // ============================================================================
+    // Helper Functions
+    // ============================================================================
+
+    /**
+     * Calculates all feature enable states from settings
+     * Single source of truth for feature enablement logic
+     * @param {Object} settings - Settings replicant value
+     * @returns {FeatureStates} Feature states
+     */
+    function getFeatureStates(settings) {
+      if (!settings) {
+        return {
+          master: false,
+          danmaku: false,
+          alerts: false,
+          subs: false,
+          follows: false,
+          cheers: false
+        };
+      }
+
+      const master = DashboardUtils.getElementValue(ELEMENT_IDS.MASTER_ENABLED);
+      const alertsEnabled = settings.alerts?.enabled !== false;
+
+      return {
+        master: master,
+        danmaku: settings.danmaku?.enabled !== false,
+        alerts: alertsEnabled,
+        subs: alertsEnabled && (settings.alerts?.showSubs !== false),
+        follows: alertsEnabled && (settings.alerts?.showFollows === true),
+        cheers: alertsEnabled && (settings.alerts?.showCheers !== false)
+      };
+    }
+
+    /**
+     * Updates all controls based on master test mode toggle
+     * Disables everything when master is OFF, delegates to feature toggles when ON
+     */
+    function updateMasterTestState() {
+      const isEnabled = DashboardUtils.getElementValue(ELEMENT_IDS.MASTER_ENABLED);
+      const testGrid = document.getElementById('test-grid');
+      const alertIntervalSection = document.querySelector('.section.mt-2');
+      const clearAllSection = document.querySelectorAll('.section')[1]; // Second .section is clear all
+
+      // Disable/enable all buttons using setDisabledState utility
+      DashboardUtils.setDisabledState(
+        [ELEMENT_IDS.SEND_MESSAGE, ELEMENT_IDS.SEND_SUB, ELEMENT_IDS.SEND_RESUB,
+         ELEMENT_IDS.SEND_GIFTSUB, ELEMENT_IDS.SEND_FOLLOW, ELEMENT_IDS.SEND_CHEER,
+         ELEMENT_IDS.CLEAR_ALL],
+        !isEnabled
+      );
+
+      // Disable/enable all checkboxes
+      DashboardUtils.setDisabledState(
+        [ELEMENT_IDS.AUTO_MESSAGES, ELEMENT_IDS.AUTO_SUBS,
+         ELEMENT_IDS.AUTO_FOLLOWS, ELEMENT_IDS.AUTO_CHEERS],
+        !isEnabled
+      );
+
+      // Disable/enable all sliders
+      DashboardUtils.setDisabledState(
+        [ELEMENT_IDS.MESSAGES_PER_MINUTE, ELEMENT_IDS.ALERT_INTERVAL],
+        !isEnabled
+      );
+
+      // Visual state for cards and sections
+      if (!isEnabled) {
+        testGrid.querySelectorAll('.test-card').forEach(card => card.classList.add('disabled'));
+        if (alertIntervalSection) alertIntervalSection.style.opacity = '0.5';
+        if (clearAllSection) clearAllSection.style.opacity = '0.5';
+      } else {
+        testGrid.querySelectorAll('.test-card').forEach(card => card.classList.remove('disabled'));
+        if (alertIntervalSection) alertIntervalSection.style.opacity = '1';
+        if (clearAllSection) clearAllSection.style.opacity = '1';
+
+        // Re-apply individual disabled states based on feature toggles
+        updateButtonStates();
+        updateAutoGenState();
+      }
+    }
+
+    /**
+     * Updates slider disabled states based on their related auto-generate checkboxes
+     */
+    function updateAutoGenState() {
+      const settings = settingsRep.value;
+      const states = getFeatureStates(settings);
+
+      // Messages per minute slider - disabled if master OFF, auto-messages OFF, or danmaku disabled
+      const autoMessagesEnabled = DashboardUtils.getElementValue(ELEMENT_IDS.AUTO_MESSAGES);
+      const messagesPerMinuteInput = document.getElementById(ELEMENT_IDS.MESSAGES_PER_MINUTE);
+      messagesPerMinuteInput.disabled = !states.master || !autoMessagesEnabled || !states.danmaku;
+
+      // Alert interval slider - disabled if master OFF, no alert types enabled, or alerts disabled
+      const autoSubsEnabled = DashboardUtils.getElementValue(ELEMENT_IDS.AUTO_SUBS);
+      const autoFollowsEnabled = DashboardUtils.getElementValue(ELEMENT_IDS.AUTO_FOLLOWS);
+      const autoCheersEnabled = DashboardUtils.getElementValue(ELEMENT_IDS.AUTO_CHEERS);
+      const anyAlertEnabled = autoSubsEnabled || autoFollowsEnabled || autoCheersEnabled;
+      const alertIntervalInput = document.getElementById(ELEMENT_IDS.ALERT_INTERVAL);
+      alertIntervalInput.disabled = !states.master || !anyAlertEnabled || !states.alerts;
+    }
+
+    // Helper to update button and checkbox disabled states based on feature toggles
+    function updateButtonStates() {
+      const settings = settingsRep.value;
+      const states = getFeatureStates(settings);
+
+      // If master test mode is disabled, all buttons and checkboxes are disabled - handled by updateMasterTestState
+      if (!states.master) return;
+
+      // Only apply feature-specific toggles if master test mode is enabled
+
+      // === DANMAKU (Chat Messages) ===
+      DashboardUtils.setDisabledState(
+        [ELEMENT_IDS.SEND_MESSAGE, ELEMENT_IDS.AUTO_MESSAGES],
+        !states.danmaku
+      );
+
+      // === SUBSCRIPTIONS ===
+      DashboardUtils.setDisabledState(
+        [ELEMENT_IDS.SEND_SUB, ELEMENT_IDS.SEND_RESUB, ELEMENT_IDS.SEND_GIFTSUB, ELEMENT_IDS.AUTO_SUBS],
+        !states.subs
+      );
+
+      // === FOLLOWS ===
+      DashboardUtils.setDisabledState(
+        [ELEMENT_IDS.SEND_FOLLOW, ELEMENT_IDS.AUTO_FOLLOWS],
+        !states.follows
+      );
+
+      // === CHEERS ===
+      DashboardUtils.setDisabledState(
+        [ELEMENT_IDS.SEND_CHEER, ELEMENT_IDS.AUTO_CHEERS],
+        !states.cheers
+      );
+    }
+
+    /**
+     * Gets current test mode settings from DOM elements
+     * @returns {TestModeSettings} Current test mode settings
+     */
+    function getCurrentTestModeSettings() {
+      return {
+        masterEnabled: DashboardUtils.getElementValue(ELEMENT_IDS.MASTER_ENABLED),
+        autoGenMessages: DashboardUtils.getElementValue(ELEMENT_IDS.AUTO_MESSAGES),
+        messagesPerMinute: DashboardUtils.getElementValue(ELEMENT_IDS.MESSAGES_PER_MINUTE),
+        autoGenSubs: DashboardUtils.getElementValue(ELEMENT_IDS.AUTO_SUBS),
+        autoGenFollows: DashboardUtils.getElementValue(ELEMENT_IDS.AUTO_FOLLOWS),
+        autoGenCheers: DashboardUtils.getElementValue(ELEMENT_IDS.AUTO_CHEERS),
+        alertInterval: DashboardUtils.getElementValue(ELEMENT_IDS.ALERT_INTERVAL)
+      };
+    }
+
+    // Auto-save on input (debounced for sliders)
+    DashboardUtils.addListeners(
+      [ELEMENT_IDS.MESSAGES_PER_MINUTE, ELEMENT_IDS.ALERT_INTERVAL],
+      'input',
+      () => autoSave(getCurrentTestModeSettings)
+    );
+
+    // Immediate save for checkboxes
+    document.getElementById(ELEMENT_IDS.MASTER_ENABLED).addEventListener('change', () => {
+      updateMasterTestState();
+      immediateSave(getCurrentTestModeSettings);
+    });
+
+    document.getElementById(ELEMENT_IDS.AUTO_MESSAGES).addEventListener('change', () => {
+      updateAutoGenState();
+      immediateSave(getCurrentTestModeSettings);
+    });
+
+    DashboardUtils.addListeners(
+      [ELEMENT_IDS.AUTO_SUBS, ELEMENT_IDS.AUTO_FOLLOWS, ELEMENT_IDS.AUTO_CHEERS],
+      'change',
+      () => {
+        updateAutoGenState(); // Update alerts rate slider state
+        immediateSave(getCurrentTestModeSettings);
+      }
+    );
+
+    // Test mode buttons
+    document.getElementById(ELEMENT_IDS.SEND_MESSAGE).addEventListener('click', () => {
+      nodecg.sendMessage('test:sendMessage');
+    });
+
+    // Subscription alerts
+    document.getElementById(ELEMENT_IDS.SEND_SUB).addEventListener('click', () => {
+      nodecg.sendMessage('test:sendSub');
+    });
+
+    document.getElementById(ELEMENT_IDS.SEND_RESUB).addEventListener('click', () => {
+      nodecg.sendMessage('test:sendResub');
+    });
+
+    document.getElementById(ELEMENT_IDS.SEND_GIFTSUB).addEventListener('click', () => {
+      nodecg.sendMessage('test:sendGiftSub');
+    });
+
+    // Other alerts
+    document.getElementById(ELEMENT_IDS.SEND_FOLLOW).addEventListener('click', () => {
+      nodecg.sendMessage('test:sendFollow');
+    });
+
+    document.getElementById(ELEMENT_IDS.SEND_CHEER).addEventListener('click', () => {
+      nodecg.sendMessage('test:sendCheer');
+    });
+
+    // Cleanup
+    document.getElementById(ELEMENT_IDS.CLEAR_ALL).addEventListener('click', () => {
+      nodecg.sendMessage('test:clearAll');
+    });
+
+    // ============================================================================
+    // Test Credits Stats Display
+    // ============================================================================
+
+    function updateTestEstimate() {
+      nodecg.sendMessage('credits:estimateTest', null, (err, estimate) => {
+        if (err) {
+          console.error('Failed to get test estimate:', err);
+          return;
+        }
+        if (estimate) {
+          document.getElementById(ELEMENT_IDS.TEST_ESTIMATED_DURATION).textContent = `${estimate.duration}s`;
+        }
+      });
+    }
+
+    testCreditsStatsRep.on('change', (stats) => {
+      if (!stats) return;
+
+      const users = new Set([
+        ...Object.keys(stats.chatCounts || {}),
+        ...Object.keys(stats.subMonths || {}),
+        ...Object.keys(stats.donoUSD || {})
+      ]);
+
+      const totalMessages = Object.values(stats.chatCounts || {}).reduce((a, b) => a + b, 0);
+      const totalDonations = Object.values(stats.donoUSD || {}).reduce((a, b) => a + b, 0);
+
+      document.getElementById(ELEMENT_IDS.TEST_TOTAL_USERS).textContent = users.size;
+      document.getElementById(ELEMENT_IDS.TEST_TOTAL_MESSAGES).textContent = totalMessages;
+      document.getElementById(ELEMENT_IDS.TEST_TOTAL_DONATIONS).textContent = `$${totalDonations.toFixed(2)}`;
+
+      // Update estimated duration
+      updateTestEstimate();
+    });
+
+    // Update estimate when settings change (weights affect duration)
+    settingsRep.on('change', (newValue) => {
+      if (!newValue) return;
+
+      // Update test mode controls
+      DashboardUtils.updateElement(ELEMENT_IDS.MASTER_ENABLED, newValue.testMode?.masterEnabled, false);
+      DashboardUtils.updateElement(ELEMENT_IDS.AUTO_MESSAGES, newValue.testMode?.autoGenMessages, false);
+      DashboardUtils.updateElement(ELEMENT_IDS.MESSAGES_PER_MINUTE, newValue.testMode?.messagesPerMinute, 60);
+      DashboardUtils.updateElement(ELEMENT_IDS.AUTO_SUBS, newValue.testMode?.autoGenSubs, false);
+      DashboardUtils.updateElement(ELEMENT_IDS.AUTO_FOLLOWS, newValue.testMode?.autoGenFollows, false);
+      DashboardUtils.updateElement(ELEMENT_IDS.AUTO_CHEERS, newValue.testMode?.autoGenCheers, false);
+      DashboardUtils.updateElement(ELEMENT_IDS.ALERT_INTERVAL, newValue.testMode?.alertInterval, 6);
+
+      // Update slider displays
+      const messagesPerMinute = newValue.testMode?.messagesPerMinute || 60;
+      const alertInterval = newValue.testMode?.alertInterval || 6;
+      document.getElementById(ELEMENT_IDS.MESSAGES_PER_MINUTE_VALUE).textContent = Math.round(messagesPerMinute).toString();
+      document.getElementById(ELEMENT_IDS.ALERT_INTERVAL_VALUE).textContent = alertInterval;
+
+      // Toggle master test state
+      updateMasterTestState();
+
+      // Toggle messages per minute disabled state
+      updateAutoGenState();
+
+      // Update button disabled states based on feature toggles
+      updateButtonStates();
+
+      // Update test credits estimate when weights change
+      updateTestEstimate();
+    });
+
+    // ============================================================================
+    // Credits Countdown Timer
+    // ============================================================================
+
+    const creditsCountdown = DashboardUtils.createCreditsCountdown(ELEMENT_IDS.CREDITS_COUNTDOWN, ELEMENT_IDS.COUNTDOWN_STATUS, 'test');
+
+    // ============================================================================
+    // Show Test Credits Button
+    // ============================================================================
+
+    document.getElementById(ELEMENT_IDS.SHOW_TEST_CREDITS_BTN).addEventListener('click', () => {
+      nodecg.sendMessage('credits:estimateTest', null, (err, estimate) => {
+        if (err) {
+          console.error('Failed to estimate duration:', err);
+          return;
+        }
+
+        // Check if there are any users to show
+        if (!estimate || estimate.userCount === 0) {
+          showTestMessage('No test credits data to display', 'error');
+          return;
+        }
+
+        // Only start countdown if duration > 0
+        if (estimate.duration > 0) {
+          creditsCountdown.start(estimate.duration);
+        }
+
+        nodecg.sendMessage('credits:show', { which: 'test' });
+        showTestMessage('Test credits triggered');
+      });
+    });
+
+    document.getElementById(ELEMENT_IDS.HIDE_TEST_CREDITS_BTN).addEventListener('click', () => {
+      nodecg.sendMessage('credits:hide');
+      showTestMessage('Credits hidden');
+    });
+
+    // ============================================================================
+    // Export Test Credits
+    // ============================================================================
+
+    document.getElementById(ELEMENT_IDS.EXPORT_TEST_BTN).addEventListener('click', () => {
+      nodecg.sendMessage('credits:exportTest', null, (err, data) => {
+        if (err) {
+          showTestMessage(`Export failed: ${err}`, 'error');
+          return;
+        }
+
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `credits-test-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showTestMessage('Exported successfully');
+      });
+    });
+
+    // ============================================================================
+    // Import Test Credits
+    // ============================================================================
+
+    document.getElementById(ELEMENT_IDS.IMPORT_TEST_BTN).addEventListener('click', () => {
+      document.getElementById(ELEMENT_IDS.IMPORT_TEST_FILE).click();
+    });
+
+    document.getElementById(ELEMENT_IDS.IMPORT_TEST_FILE).addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          nodecg.sendMessage('credits:importTest', data, (err, result) => {
+            if (err) {
+              showTestMessage(`Import failed: ${err}`, 'error');
+            } else {
+              showTestMessage('Imported successfully');
+            }
+          });
+        } catch (err) {
+          showTestMessage('Import failed: Invalid JSON', 'error');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // ============================================================================
+    // Reset Test Credits
+    // ============================================================================
+
+    document.getElementById(ELEMENT_IDS.RESET_TEST_BTN).addEventListener('click', () => {
+      if (confirm('Reset ALL test credits data? This cannot be undone!')) {
+        nodecg.sendMessage('credits:resetTest');
+        showTestMessage('Test credits reset');
+      }
+    });
+
+    // ============================================================================
+    // Utility Functions
+    // ============================================================================
+
+    /**
+     * Shows a temporary message in the test credits panel
+     * @param {string} text - Message text to display
+     * @param {string} [type='success'] - Message type ('success' or 'error')
+     */
+    function showTestMessage(text, type = 'success') {
+      const messageEl = document.getElementById(ELEMENT_IDS.TEST_MESSAGE);
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`;
+
+      setTimeout(() => {
+        messageEl.style.display = 'none';
+        messageEl.className = 'message';
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

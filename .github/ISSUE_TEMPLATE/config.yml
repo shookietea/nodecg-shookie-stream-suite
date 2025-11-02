@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/shookieTea/nodecg-shookie-stream-suite/blob/main/README.md
+    about: Check the documentation for guides and troubleshooting
+  - name: Troubleshooting Guide
+    url: https://github.com/shookieTea/nodecg-shookie-stream-suite/blob/main/docs/TROUBLESHOOTING.md
+    about: Common issues and solutions
+  - name: Ask a Question
+    url: https://github.com/shookieTea/nodecg-shookie-stream-suite/discussions
+    about: Ask questions and discuss features in GitHub Discussions
