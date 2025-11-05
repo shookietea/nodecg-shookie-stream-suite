@@ -18,6 +18,8 @@ A NodeCG bundle for Twitch streams featuring Niconico-style scrolling chat, even
 - **Moderation support** with message deletion, timeouts, and bans
 - **Configurable visual toggles** for emotes, emojis, usernames, and text
 
+https://github.com/user-attachments/assets/616613a8-143e-4813-93f6-9e6575ba63a0
+
 ### Event Alerts
 
 - **FIFO queue system** with sequential display
@@ -26,6 +28,8 @@ A NodeCG bundle for Twitch streams featuring Niconico-style scrolling chat, even
 - **Customizable duration** and scale
 - **Smooth transitions** with fade in/out effects
 
+https://github.com/user-attachments/assets/beef3583-e861-4f3f-9fe7-0c6c18bf0ed5
+
 ### Rolling Credits
 
 - **Weighted scoring system** combining chat activity, subscriptions, and donations
@@ -33,6 +37,8 @@ A NodeCG bundle for Twitch streams featuring Niconico-style scrolling chat, even
 - **Auto-calculated duration** based on participant count
 - **Separate test mode** for previewing without affecting real statistics
 - **Export/Import functionality** for backup and restoration
+
+*visual coming soon*
 
 ### Comprehensive Test Mode
 
